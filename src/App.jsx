@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import SEED_DATA from "./seed-data.json";
 import useFirebaseSync from "./useFirebaseSync";
+import useUserProfile from "./hooks/useUserProfile";
+import OnboardingWizard from "./components/OnboardingWizard";
+import SettingsPage from "./components/SettingsPage";
+import PlanView from "./components/PlanView";
+import { TIMEZONES } from "./constants/defaults";
+import { WORKOUT_TEMPLATES } from "./constants/workoutTemplates";
 
 // Seed data from Claude export on first launch
 (function seedOnce() {
@@ -24,69 +30,7 @@ import useFirebaseSync from "./useFirebaseSync";
 
 const STORAGE_KEY = "arcadia-tracker-v2";
 const PHOTO_KEY = "kensho-photos-v1";
-const GOAL_WEIGHT = 75;
-const START_WEIGHT = 94;
-const CAL_TARGET = 1850;
-const WATER_GOAL = 8;
-const STEP_GOAL = 7000;
 const TZ_KEY = "kensho-timezone-v1";
-
-const TIMEZONES = [
-  { value: "Asia/Manila", label: "🇵🇭 Philippines (PHT)" },
-  { value: "America/New_York", label: "🇺🇸 Eastern (EST/EDT)" },
-  { value: "America/Chicago", label: "🇺🇸 Central (CST/CDT)" },
-  { value: "America/Denver", label: "🇺🇸 Mountain (MST/MDT)" },
-  { value: "America/Los_Angeles", label: "🇺🇸 Pacific (PST/PDT)" },
-  { value: "UTC", label: "🌐 UTC" },
-  { value: "Asia/Tokyo", label: "🇯🇵 Japan (JST)" },
-  { value: "Asia/Singapore", label: "🇸🇬 Singapore (SGT)" },
-  { value: "Australia/Sydney", label: "🇦🇺 Sydney (AEST)" },
-  { value: "Europe/London", label: "🇬🇧 London (GMT/BST)" },
-];
-
-const MILESTONES = [
-  { kg: 90, label: "First 4kg down", emoji: "🔥", face: "Neck thins out, clothes looser" },
-  { kg: 88, label: "People notice", emoji: "👀", face: "Under-chin tightens, jawline hints" },
-  { kg: 85, label: "20% body fat", emoji: "💪", face: "\"Have you lost weight?\" begins" },
-  { kg: 80, label: "Transformation zone", emoji: "✨", face: "Cheekbones visible, jawline defined" },
-  { kg: 75, label: "K-Drama Territory", emoji: "🏆", face: "Sharp jaw, cheekbones, the full look" },
-];
-
-const DAILY_REMINDERS = [
-  "Two walks today. That's it. Podcast on, shoes on, door open.",
-  "Your jawline is under there. Every step carves it out.",
-  "The guy at 75kg is being built right now. By you.",
-  "Put K-drama on screen 2. Do a set. Watch during rest. Repeat.",
-  "You don't need motivation. You need shoes and a podcast.",
-  "Today's walk is tomorrow's cheekbone.",
-  "Don't count up from 1. Count down from 12. Squeeze one more.",
-  "Your brain wants stimulation, not rest. Feed it while you move.",
-  "One meal. Two walks. Two workouts this week. That's the whole plan.",
-  "The awkward hair phase is temporary. The discipline isn't.",
-  "You're not fighting your nature anymore. You're using it.",
-  "Skip the perfect routine. Just put on shoes.",
-  "94 → 75. You've already started. Keep the line moving down.",
-  "Every podcast episode you finish on a walk is 300+ calories gone.",
-  "Coach Mike's program works. But only if you show up.",
-  "Discomfort at rep 10 isn't danger. It's where growth lives.",
-  "The mirror lies daily. The scale lies weekly. The trend never lies.",
-  "Your Learner strength craves progress. Log it. See the data move.",
-  "3 green dots today. That's the mission. Everything else is bonus.",
-  "The barber trim keeps the flow clean. The walks keep the jaw sharp.",
-  "Rest days aren't cheat days. OMAD still counts.",
-  "Morning walk: Coursera lecture. Evening walk: decompress podcast.",
-  "You chose the minimum effective dose. Now be effective at the minimum.",
-  "Your Input strength collects knowledge. Collect steps too.",
-  "Imagine the fit check at 80kg with shoulder-length waves. Keep going.",
-  "Two sessions this week. Not three. Not four. Two done well.",
-  "The PHP 10,000 test: could you do 2 more reps? Then do them.",
-  "Stop when your muscles fail, not when your brain complains.",
-  "Consistency > intensity. Always.",
-  "You're an architect. You're rebuilding the structure. Trust the blueprint.",
-  "Cleanser tonight. Moisturizer. Sunscreen tomorrow. Non-negotiable.",
-];
-
-const CONSTANT_QUOTE = "Never exercise without feeding your brain. Your strengths — Input, Intellection, Learner, Ideation — demand it. Walks are study time. Workouts are K-drama time. Dead time guarantees quitting.";
 
 const getNowInTz = (tz) => {
   try {
@@ -102,7 +46,6 @@ const getTimeInTz = (tz) => {
 const getWeekStart = (ds) => { const d = new Date(ds + "T00:00:00"); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().split("T")[0]; };
 const getWeekId = (ds) => { const d = new Date(ds + "T00:00:00"); const jan1 = new Date(d.getFullYear(), 0, 1); const days = Math.floor((d - jan1) / 86400000); return `${d.getFullYear()}-W${String(Math.ceil((days + jan1.getDay() + 1) / 7)).padStart(2, "0")}`; };
 const defaultDay = () => ({ steps: 0, workout: false, workoutDay: null, workoutSets: [], workoutChecks: {}, warmupDone: false, cooldownDone: false, skincare: false, omad: false, water: 0, weight: null, note: "", foods: [], lastMealTime: null, brushAM: false, brushPM: false, bathing: false, laundry: false, roomCleaned: false });
-const getDailyReminder = (dateStr) => { let h = 0; for (let i = 0; i < dateStr.length; i++) { h = ((h << 5) - h) + dateStr.charCodeAt(i); h |= 0; } return DAILY_REMINDERS[Math.abs(h) % DAILY_REMINDERS.length]; };
 const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
 const shiftDate = (dateStr, days) => { const d = new Date(dateStr + "T00:00:00"); d.setDate(d.getDate() + days); return d.toISOString().split("T")[0]; };
@@ -127,35 +70,6 @@ const KenshoLogo = () => (
     <defs><linearGradient id="enso" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#60a5fa" /></linearGradient></defs>
   </svg>
 );
-
-const WORKOUT_PROGRAM = {
-  block: "Feb 15 – Mar 14, 2026",
-  1: {
-    name: "Day 1 — Dumbbell Only",
-    time: "~31 min",
-    supersets: [
-      { set: 1, rounds: 3, a: { name: "Dumbbell Front Squat", reps: "6-10" }, b: { name: "Dumbbell Bent Over Row", reps: "8-12" } },
-      { set: 2, rounds: 3, a: { name: "Goblet Side Lunge", reps: "6-10 each" }, b: { name: "Dumbbell Bent Over Reverse Fly", reps: "12-15" } },
-      { set: 3, rounds: 3, a: { name: "Dumbbell Supinating Bicep Curl", reps: "8-12" }, b: { name: "Weighted Straight Leg Crunch", reps: "12-20" } },
-    ],
-  },
-  2: {
-    name: "Day 2 — Bench + Dumbbell",
-    time: "~31 min",
-    supersets: [
-      { set: 1, rounds: 3, a: { name: "Dumbbell Romanian Deadlift", reps: "6-10" }, b: { name: "Dumbbell Bench Press", reps: "8-12" } },
-      { set: 2, rounds: 3, a: { name: "Dumbbell Hip Thrust", reps: "8-12" }, b: { name: "Dumbbell Standing Shoulder Press", reps: "8-12" } },
-      { set: 3, rounds: 3, a: { name: "Dumbbell Lateral Raise", reps: "12-20" }, b: { name: "Dumbbell Lying Tricep Extension", reps: "12-20" } },
-    ],
-  },
-  warmup: ["Jumping Jacks", "Arm Circles", "Leg Swings", "Hip Circles", "Bodyweight Squats", "Torso Twists"],
-  cooldown: ["Quad Stretch", "Hamstring Stretch", "Chest Stretch", "Shoulder Stretch", "Hip Flexor Stretch", "Calf Stretch", "Child's Pose"],
-};
-
-const EXERCISES = {
-  1: WORKOUT_PROGRAM[1].supersets.flatMap(s => [s.a.name, s.b.name]),
-  2: WORKOUT_PROGRAM[2].supersets.flatMap(s => [s.a.name, s.b.name]),
-};
 
 export default function KenshoTracker() {
   const [data, setData] = useState(null);
@@ -191,7 +105,6 @@ export default function KenshoTracker() {
   const activeDate = selectedDate || today;
   const isToday = activeDate === today;
   const isFutureDate = activeDate > today;
-  const dailyReminder = getDailyReminder(activeDate);
   const weekId = getWeekId(activeDate);
   const isSunday = new Date(activeDate + "T00:00:00").getDay() === 0;
 
@@ -254,6 +167,30 @@ export default function KenshoTracker() {
 
   // ── Firebase sync ──
   const { firebaseEnabled: fbEnabled, user: fbUser, syncStatus, signIn, signOut: fbSignOut, pushDay, pushMeta } = useFirebaseSync();
+
+  const { profile, profileLoaded, saveProfile, needsOnboarding } = useUserProfile(fbUser);
+
+  const GOAL_WEIGHT = profile?.goalWeight || 75;
+  const START_WEIGHT = profile?.startWeight || 94;
+  const CAL_TARGET = profile?.calTarget || 1850;
+  const WATER_GOAL = profile?.waterGoal || 8;
+  const STEP_GOAL = profile?.stepGoal || 7000;
+  const MILESTONES = profile?.milestones || [];
+  const WORKOUT_PROGRAM = profile?.workoutProgram || {};
+  const EXERCISES_DERIVED = {};
+  const maxDay = Object.keys(WORKOUT_PROGRAM).filter(k => !isNaN(parseInt(k))).length;
+  for (let i = 1; i <= maxDay; i++) {
+    if (WORKOUT_PROGRAM[i]) {
+      EXERCISES_DERIVED[i] = WORKOUT_PROGRAM[i].supersets?.flatMap(s => [s.a.name, s.b.name]) || [];
+    }
+  }
+
+  const getDailyReminder = (dateStr) => {
+    const reminders = profile?.dailyReminders || ["Put on your shoes. That's step one."];
+    let h = 0; for (let i = 0; i < dateStr.length; i++) { h = ((h << 5) - h) + dateStr.charCodeAt(i); h |= 0; }
+    return reminders[Math.abs(h) % reminders.length];
+  };
+  const dailyReminder = getDailyReminder(activeDate);
 
   // Listen for cross-device sync events
   useEffect(() => {
@@ -412,7 +349,11 @@ export default function KenshoTracker() {
   const goDay = (offset) => setSelectedDate(shiftDate(activeDate, offset));
   const goToday = () => setSelectedDate(today);
 
-  if (loading || !data || !selectedDate) return <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#9ca3af" }}>Loading...</p></div>;
+  if (!profileLoaded || loading) return <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ color: "#6b7280", fontSize: 14 }}>Loading…</div></div>;
+
+  if (needsOnboarding && fbUser) return <OnboardingWizard user={fbUser} onComplete={saveProfile} />;
+
+  if (!data || !selectedDate) return <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#9ca3af" }}>Loading...</p></div>;
 
   const cw = latestWeight(); const lost = START_WEIGHT - cw; const remain = cw - GOAL_WEIGHT;
   const pct = Math.min(100, Math.max(0, Math.round((lost / (START_WEIGHT - GOAL_WEIGHT)) * 100)));
@@ -528,7 +469,7 @@ export default function KenshoTracker() {
 
       {/* NAV */}
       <div style={{ display: "flex", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, zIndex: 10, background: "rgba(3,7,18,0.97)" }}>
-        {[["today", "Today"], ["food", "Food"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"]].map(([k, label]) => (
+        {[["today", "Today"], ["food", "Food"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"], ["settings", "⚙️"]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)} style={{ flex: 1, padding: "12px 0", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer", background: "transparent", color: view === k ? "#34d399" : "#6b7280", borderBottom: view === k ? "2px solid #34d399" : "2px solid transparent" }}>{label}</button>
         ))}
       </div>
@@ -617,12 +558,12 @@ export default function KenshoTracker() {
             </div>
             {td.water >= WATER_GOAL && <p style={{ textAlign: "center", fontSize: 11, color: "#60a5fa", marginTop: 8, fontWeight: 600 }}>✓ Hydration complete!</p>}
           </div>
-          <div style={{ ...st.label, marginTop: 16 }}>Workout (2x/week) · {WORKOUT_PROGRAM.block}</div>
+          <div style={{ ...st.label, marginTop: 16 }}>Workout ({profile?.workoutsPerWeek || maxDay}x/week){WORKOUT_PROGRAM.block ? ` · ${WORKOUT_PROGRAM.block}` : ""}</div>
           {!td.workout ? (
             <div style={st.card}>
               <p style={{ fontSize: 13, color: "#9ca3af", margin: "0 0 8px" }}>Did you train{isToday ? " today" : ` on ${formatDateLabel(activeDate, today)}`}?</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {[1, 2].map(n => (<button key={n} onClick={() => pickWorkout(n)} style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 12, padding: "12px", color: "#d1d5db", fontSize: 13, cursor: "pointer", textAlign: "left" }}><div style={{ fontWeight: 700, marginBottom: 2 }}>{WORKOUT_PROGRAM[n].name}</div><div style={{ fontSize: 10, color: "#6b7280" }}>{WORKOUT_PROGRAM[n].time} · 3 supersets</div></button>))}
+              <div style={{ display: "grid", gridTemplateColumns: maxDay > 2 ? "1fr 1fr" : "1fr 1fr", gap: 8 }}>
+                {Array.from({ length: maxDay }, (_, i) => i + 1).map(n => WORKOUT_PROGRAM[n] && (<button key={n} onClick={() => pickWorkout(n)} style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 12, padding: "12px", color: "#d1d5db", fontSize: 13, cursor: "pointer", textAlign: "left" }}><div style={{ fontWeight: 700, marginBottom: 2 }}>{WORKOUT_PROGRAM[n].name}</div><div style={{ fontSize: 10, color: "#6b7280" }}>{WORKOUT_PROGRAM[n].time}{WORKOUT_PROGRAM[n].supersets ? ` · ${WORKOUT_PROGRAM[n].supersets.length} supersets` : ""}</div></button>))}
               </div>
             </div>
           ) : (
@@ -645,7 +586,7 @@ export default function KenshoTracker() {
               {showSetLogger && <div style={{ marginTop: 10 }}>
                 {(td.workoutSets || []).map((ws, idx) => (<div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", fontSize: 12, color: "#d1d5db" }}><span>{ws.exercise}: {ws.weight}kg × {ws.reps}</span><button onClick={() => removeSet(idx)} style={{ background: "transparent", border: "none", color: "#4b5563", fontSize: 14, cursor: "pointer" }}>×</button></div>))}
                 <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                  <select value={setExercise} onChange={e => setSetExercise(e.target.value)} style={{ ...inp, flex: "1 1 100%", padding: "8px 10px" }}><option value="">Exercise...</option>{(EXERCISES[td.workoutDay] || []).map(ex => <option key={ex} value={ex}>{ex}</option>)}<option value="Other">Other</option></select>
+                  <select value={setExercise} onChange={e => setSetExercise(e.target.value)} style={{ ...inp, flex: "1 1 100%", padding: "8px 10px" }}><option value="">Exercise...</option>{(EXERCISES_DERIVED[td.workoutDay] || []).map(ex => <option key={ex} value={ex}>{ex}</option>)}<option value="Other">Other</option></select>
                   <input type="number" placeholder="kg" value={setWeight} onChange={e => setSetWeight(e.target.value)} style={{ ...inp, flex: "1 1 40%", padding: "8px 10px" }} />
                   <input type="number" placeholder="reps" value={setReps} onChange={e => setSetReps(e.target.value)} style={{ ...inp, flex: "1 1 40%", padding: "8px 10px" }} />
                 </div>
@@ -724,7 +665,7 @@ export default function KenshoTracker() {
 
         {/* ===== STATS ===== */}
         {view === "stats" && <>
-          <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 16, padding: 16, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 16 }}><div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Core Principle</div><p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.5, margin: 0 }}>{CONSTANT_QUOTE}</p></div>
+          <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 16, padding: 16, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 16 }}><div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Core Principle</div><p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.5, margin: 0 }}>{profile?.constantQuote || "The minimum effective dose: show up, track everything, trust the process."}</p></div>
           <div style={{ ...st.card, border: isSunday && !currentReview ? "1px solid rgba(251,191,36,0.5)" : "1px solid rgba(55,65,81,0.5)", background: isSunday && !currentReview ? "rgba(120,53,15,0.1)" : "rgba(17,24,39,0.5)" }}>
             <div style={st.label}>{isSunday ? "📝 Weekly Review — It's Sunday!" : "📝 Weekly Review"}</div>
             {currentReview ? (<div>{currentReview.worked && <div style={{ marginBottom: 8 }}><div style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>What worked:</div><p style={{ fontSize: 12, color: "#d1d5db", margin: "2px 0 0" }}>{currentReview.worked}</p></div>}{currentReview.didnt && <div style={{ marginBottom: 8 }}><div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>What didn't:</div><p style={{ fontSize: 12, color: "#d1d5db", margin: "2px 0 0" }}>{currentReview.didnt}</p></div>}{currentReview.adjust && <div><div style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>Adjusting:</div><p style={{ fontSize: 12, color: "#d1d5db", margin: "2px 0 0" }}>{currentReview.adjust}</p></div>}<p style={{ fontSize: 10, color: "#4b5563", marginTop: 8 }}>Week of {weekId}</p></div>) : (<div><input placeholder="What worked this week?" value={reviewWorked} onChange={e => setReviewWorked(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 6 }} /><input placeholder="What didn't work?" value={reviewDidnt} onChange={e => setReviewDidnt(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 6 }} /><input placeholder="One thing to adjust next week?" value={reviewAdjust} onChange={e => setReviewAdjust(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} /><button onClick={saveWeeklyReview} style={{ width: "100%", background: "#059669", border: "none", borderRadius: 12, padding: "10px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Review</button></div>)}
@@ -754,69 +695,10 @@ export default function KenshoTracker() {
         </>}
 
         {/* ===== PLAN ===== */}
-        {view === "plan" && <>
-          <div style={{ ...st.card, border: "1px solid rgba(16,185,129,0.3)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>📋 Minimum Effective Protocol</div>
-            {[["7,000 steps daily","Two walks with podcasts or Coursera. Morning + evening."],["2 full body sessions/week","Coach Mike's superset program. Day 1 (DB Only) + Day 2 (Bench+DB)."],["OMAD at 1,850 cal","Switch to 2,200-2,400 cal maintenance at 75kg."],["8 glasses of water","Spread throughout the day. Suppresses hunger during fasting."],["Skincare every night","Cleanser → Moisturizer. Sunscreen in AM."],["Hygiene basics","Brush AM+PM, daily bath, weekly laundry + room clean."],["Hair trim every 6-8 weeks","Growing out. Just clean up shape, no length off top."]].map(([t,d],i) => (<div key={i} style={{ display: "flex", gap: 10, marginBottom: 10 }}><span style={{ color: "#10b981", fontWeight: 700, fontSize: 14 }}>{i+1}.</span><div><div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{t}</div><div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4 }}>{d}</div></div></div>))}
-          </div>
-          <div style={{ ...st.card, border: "1px solid rgba(96,165,250,0.3)" }}><div style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>💇 Barber Script</div><p style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.5, margin: 0 }}>"Kuya, I'm growing my hair out long. I don't want to cut the length. Just trim the split ends, thin out the sides so it doesn't puff out, and clean up the neckline."</p><p style={{ fontSize: 11, color: "#6b7280", marginTop: 8, fontStyle: "italic" }}>Key: "growing it out" · "no length off the top" · "just clean up the shape"</p></div>
-          <div style={{ ...st.card, border: "1px solid rgba(167,139,250,0.3)" }}><div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>🏃 Running Spots</div><div style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.8 }}><div>📍 <strong>Filinvest Heights</strong> — Walk out your door</div><div>📍 <strong>QC Memorial Circle</strong> — 5AM-10PM</div><div>📍 <strong>UP Academic Oval</strong> — 2.2km loop, free</div></div><p style={{ fontSize: 11, color: "#6b7280", marginTop: 8 }}>Start: 3 min walk, 1 min jog, repeat 20-30 min.</p></div>
-          <div style={{ ...st.card, border: "1px solid rgba(251,191,36,0.3)" }}><div style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>💪 Progressive Overload</div><p style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.5, margin: 0 }}>Hit 12 reps with good form → add 1-2kg → drop to 8 reps → build back up.</p><p style={{ fontSize: 11, color: "#6b7280", marginTop: 8, fontStyle: "italic" }}>Count DOWN from 12. Your brain lies at 60%.</p></div>
-          <div style={{ ...st.card, border: "1px solid rgba(251,113,133,0.3)" }}><div style={{ fontSize: 11, fontWeight: 700, color: "#fb7185", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>⏱ Timeline</div><div style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.8 }}><div>🎯 2 sessions + 7k steps = <strong>75kg in 9-10 months</strong></div><div>⚡ 3 sessions + 7k steps = 8 months</div><div>🚀 4 sessions + 7k steps = 7 months</div></div><p style={{ fontSize: 11, color: "#6b7280", marginTop: 8 }}>At 75kg: eat 2,200-2,400 cal. Keep 5k steps + 1-2 sessions/week.</p></div>
-          <div style={{ ...st.card, border: "1px solid rgba(139,92,246,0.3)", background: "linear-gradient(135deg, rgba(17,24,39,0.8), rgba(49,46,129,0.15))" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>🧠 CliftonStrengths Insights</div>
-            <p style={{ fontSize: 10, color: "#6b7280", margin: "0 0 12px 0", fontStyle: "italic" }}>Your Gallup Top 5 — and how they fuel KENSHO</p>
-            {[
-              { rank: 1, name: "Input", domain: "Strategic Thinking", color: "#8b5cf6", emoji: "📥",
-                desc: "You collect and archive everything — information, ideas, resources.",
-                fitness: "Track every meal, every rep, every step. Your data archive IS your edge. The more you log, the sharper your decisions." },
-              { rank: 2, name: "Intellection", domain: "Strategic Thinking", color: "#8b5cf6", emoji: "🧠",
-                desc: "You need mental activity. Deep thinking is your natural state.",
-                fitness: "Walks aren't just cardio — they're thinking time. Podcasts, audiobooks, strategy sessions with yourself. Pair movement with mental fuel." },
-              { rank: 3, name: "Connectedness", domain: "Relationship Building", color: "#3b82f6", emoji: "🔗",
-                desc: "You see how everything is linked. Nothing happens in isolation.",
-                fitness: "Your body, your confidence, Arcadia, your future relationships — they're all one system. Every rep connects to the man at 75kg who builds cities." },
-              { rank: 4, name: "Learner", domain: "Strategic Thinking", color: "#8b5cf6", emoji: "📚",
-                desc: "The process of learning excites you more than the outcome.",
-                fitness: "Treat fitness as a subject to master. Study form, nutrition science, recovery. The learning curve from 95kg → 75kg is your classroom." },
-              { rank: 5, name: "Ideation", domain: "Strategic Thinking", color: "#8b5cf6", emoji: "💡",
-                desc: "You see connections others miss. New perspectives energize you.",
-                fitness: "You built this tracker. You reimagined walks as podcast university. Keep innovating your approach — that creativity prevents plateaus." }
-            ].map((s, i) => (
-              <div key={i} style={{ marginBottom: i < 4 ? 14 : 0, paddingBottom: i < 4 ? 14 : 0, borderBottom: i < 4 ? "1px solid rgba(55,65,81,0.3)" : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 16 }}>{s.emoji}</span>
-                  <div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>#{s.rank} {s.name}</span>
-                    <span style={{ fontSize: 10, color: s.color, marginLeft: 8, padding: "1px 6px", borderRadius: 99, border: `1px solid ${s.color}33` }}>{s.domain}</span>
-                  </div>
-                </div>
-                <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 4px 0", lineHeight: 1.4 }}>{s.desc}</p>
-                <p style={{ fontSize: 12, color: "#c4b5fd", margin: 0, lineHeight: 1.4 }}>→ {s.fitness}</p>
-              </div>
-            ))}
-            <div style={{ marginTop: 14, padding: "10px 12px", background: "rgba(139,92,246,0.1)", borderRadius: 10, border: "1px solid rgba(139,92,246,0.2)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", marginBottom: 6 }}>Your Strengths DNA</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-                {[
-                  { label: "Strategic Thinking", count: 4, color: "#8b5cf6" },
-                  { label: "Relationship Building", count: 1, color: "#3b82f6" }
-                ].map((d, i) => (
-                  <span key={i} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 99, background: `${d.color}22`, color: d.color, border: `1px solid ${d.color}33` }}>{d.label} ×{d.count}</span>
-                ))}
-              </div>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: 0, lineHeight: 1.5 }}>You lead with Strategic Thinking — you absorb, analyze, and decide. Your fitness advantage isn't discipline or willpower. It's <strong style={{ color: "#c4b5fd" }}>intelligence applied to the body</strong>. Track smarter. Think deeper. Connect everything.</p>
-            </div>
-            <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(49,46,129,0.15)", borderRadius: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 4 }}>Also in your Top 10</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {["#6 Context", "#7 Futuristic", "#8 Relator", "#9 Maximizer", "#10 Analytical"].map((t, i) => (
-                  <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 99, background: "rgba(55,65,81,0.5)", color: "#9ca3af" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>}
+        {view === "plan" && <PlanView profile={profile} saveProfile={saveProfile} />}
+
+        {/* ===== SETTINGS ===== */}
+        {view === "settings" && <SettingsPage profile={profile} saveProfile={saveProfile} timezone={timezone} onTimezoneChange={saveTz} onSignOut={fbSignOut} />}
       </div>
     </div>
   );
