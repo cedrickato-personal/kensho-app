@@ -355,7 +355,7 @@ function KenshoTracker() {
   // ── Sign-in portal for unauthenticated visitors ──
   if (fbEnabled && !fbUser) return (
     <div style={{ minHeight: "100vh", background: "#030712", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <img src="/kensho-logo-white.png" alt="Kensho" style={{ width: 240, height: 240, objectFit: "contain", marginBottom: 16, opacity: 0.95 }} />
+      <img src="/kensho-logo-white.png" alt="Kensho" style={{ width: 360, height: 360, objectFit: "contain", marginBottom: 16, opacity: 0.95 }} />
       <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 8px", letterSpacing: 1.5, textTransform: "uppercase" }}>Reveal Your True Nature</p>
       <p style={{ color: "#4b5563", fontSize: 13, margin: "0 0 32px", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>Track your fitness, nutrition, and daily habits. Personalized goals, AI-powered insights, and real-time sync across devices.</p>
       <button onClick={signIn} style={{ background: "linear-gradient(135deg, #34d399, #60a5fa)", border: "none", borderRadius: 14, padding: "14px 32px", color: "#030712", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
