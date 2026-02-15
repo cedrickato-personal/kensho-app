@@ -6,34 +6,48 @@ const inp = { background: "#111827", border: "1px solid #374151", borderRadius: 
 const sectionTitle = { fontSize: 11, fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 };
 
 export default function SettingsPage({ profile, saveProfile, timezone, onTimezoneChange, onSignOut }) {
-  const [goalWeight, setGoalWeight] = useState(String(profile.goalWeight || ""));
-  const [startWeight, setStartWeight] = useState(String(profile.startWeight || ""));
-  const [calTarget, setCalTarget] = useState(String(profile.calTarget || ""));
-  const [stepGoal, setStepGoal] = useState(String(profile.stepGoal || ""));
-  const [waterGoal, setWaterGoal] = useState(String(profile.waterGoal || ""));
-  const [workoutsPerWeek, setWorkoutsPerWeek] = useState(String(profile.workoutsPerWeek || ""));
-  const [displayName, setDisplayName] = useState(profile.displayName || "");
-  const [templateId, setTemplateId] = useState(profile.workoutTemplateId || "coach-mike-2day");
+  const [goalWeight, setGoalWeight] = useState(String(profile?.goalWeight || ""));
+  const [startWeight, setStartWeight] = useState(String(profile?.startWeight || ""));
+  const [calTarget, setCalTarget] = useState(String(profile?.calTarget || ""));
+  const [stepGoal, setStepGoal] = useState(String(profile?.stepGoal || ""));
+  const [waterGoal, setWaterGoal] = useState(String(profile?.waterGoal || ""));
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState(String(profile?.workoutsPerWeek || ""));
+  const [displayName, setDisplayName] = useState(profile?.displayName || "");
+  const [templateId, setTemplateId] = useState(profile?.workoutTemplateId || "coach-mike-2day");
+
+  // Habit tracking state
+  const defaultHygieneItems = ["Brush teeth", "Shower", "Skincare AM", "Skincare PM", "Laundry", "Clean room"];
+  const [enableSkincare, setEnableSkincare] = useState(profile?.enableSkincare ?? false);
+  const [enableOmad, setEnableOmad] = useState(profile?.enableOmad ?? false);
+  const [enableFasting, setEnableFasting] = useState(profile?.enableFasting ?? false);
+  const [enableHygiene, setEnableHygiene] = useState(profile?.enableHygiene ?? false);
+  const [hygieneItems, setHygieneItems] = useState(profile?.hygieneItems || defaultHygieneItems);
+  const [newHygieneItem, setNewHygieneItem] = useState("");
   const [saved, setSaved] = useState(false);
   const [tz, setTz] = useState(timezone);
 
   useEffect(() => { if (saved) { const t = setTimeout(() => setSaved(false), 2000); return () => clearTimeout(t); } }, [saved]);
 
   const handleSave = async () => {
-    const sw = parseFloat(startWeight) || profile.startWeight;
-    const gw = parseFloat(goalWeight) || profile.goalWeight;
+    const sw = parseFloat(startWeight) || profile?.startWeight || 0;
+    const gw = parseFloat(goalWeight) || profile?.goalWeight || 0;
     const template = WORKOUT_TEMPLATES[templateId];
     const updates = {
-      displayName: displayName || profile.displayName,
+      displayName: displayName || profile?.displayName || "",
       goalWeight: gw,
       startWeight: sw,
-      calTarget: parseInt(calTarget) || profile.calTarget,
-      waterGoal: parseInt(waterGoal) || profile.waterGoal,
-      stepGoal: parseInt(stepGoal) || profile.stepGoal,
-      workoutsPerWeek: parseInt(workoutsPerWeek) || profile.workoutsPerWeek,
+      calTarget: parseInt(calTarget) || profile?.calTarget || 0,
+      waterGoal: parseInt(waterGoal) || profile?.waterGoal || 0,
+      stepGoal: parseInt(stepGoal) || profile?.stepGoal || 0,
+      workoutsPerWeek: parseInt(workoutsPerWeek) || profile?.workoutsPerWeek || 0,
       workoutTemplateId: templateId,
-      workoutProgram: template?.program || profile.workoutProgram,
+      workoutProgram: template?.program || profile?.workoutProgram || [],
       milestones: generateMilestones(sw, gw),
+      enableSkincare,
+      enableOmad,
+      enableFasting,
+      enableHygiene,
+      hygieneItems,
     };
     await saveProfile(updates);
     if (tz !== timezone) onTimezoneChange(tz);
@@ -92,6 +106,88 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
         </div>
       </div>
 
+      {/* Habit Tracking */}
+      <div style={card}>
+        <div style={sectionTitle}>{"🔁 Habit Tracking"}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { label: "Skincare Routine", value: enableSkincare, setter: setEnableSkincare },
+            { label: "OMAD Diet", value: enableOmad, setter: setEnableOmad },
+            { label: "Fasting Timer", value: enableFasting, setter: setEnableFasting },
+            { label: "Daily Hygiene/Chores", value: enableHygiene, setter: setEnableHygiene },
+          ].map(({ label, value, setter }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: "#d1d5db" }}>{label}</span>
+              <button
+                onClick={() => setter(!value)}
+                style={{
+                  background: value ? "#059669" : "#374151",
+                  border: "none",
+                  borderRadius: 8,
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "6px 16px",
+                  cursor: "pointer",
+                  minWidth: 52,
+                  transition: "background 0.2s",
+                }}
+              >
+                {value ? "ON" : "OFF"}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {enableHygiene && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #1f2937" }}>
+            <label style={{ fontSize: 11, color: "#6b7280", display: "block", marginBottom: 8 }}>Hygiene Items</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {hygieneItems.map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "#111827", borderRadius: 8, padding: "6px 10px" }}>
+                  <span style={{ flex: 1, fontSize: 13, color: "#d1d5db" }}>{item}</span>
+                  <button
+                    onClick={() => setHygieneItems(hygieneItems.filter((_, idx) => idx !== i))}
+                    style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 14, cursor: "pointer", padding: "2px 6px" }}
+                  >
+                    {"\u2715"}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={newHygieneItem}
+                onChange={e => setNewHygieneItem(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && newHygieneItem.trim()) {
+                    setHygieneItems([...hygieneItems, newHygieneItem.trim()]);
+                    setNewHygieneItem("");
+                  }
+                }}
+                placeholder="Add item..."
+                style={{ ...inp, flex: 1 }}
+              />
+              <button
+                onClick={() => {
+                  if (newHygieneItem.trim()) {
+                    setHygieneItems([...hygieneItems, newHygieneItem.trim()]);
+                    setNewHygieneItem("");
+                  }
+                }}
+                style={{
+                  background: "#059669", border: "none", borderRadius: 10,
+                  color: "#fff", fontSize: 12, fontWeight: 700, padding: "8px 16px",
+                  cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Workout Program */}
       <div style={card}>
         <div style={sectionTitle}>💪 Workout Program</div>
@@ -130,7 +226,7 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
       <div style={card}>
         <div style={sectionTitle}>🔒 Account</div>
         <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 12px" }}>
-          Signed in as <strong style={{ color: "#d1d5db" }}>{profile.displayName}</strong>
+          Signed in as <strong style={{ color: "#d1d5db" }}>{profile?.displayName || "User"}</strong>
         </p>
         <button onClick={onSignOut} style={{
           background: "transparent", border: "1px solid #374151", borderRadius: 10,

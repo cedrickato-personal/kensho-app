@@ -17,6 +17,12 @@ export default function OnboardingWizard({ user, onComplete }) {
   const [waterGoal, setWaterGoal] = useState("8");
   const [workoutsPerWeek, setWorkoutsPerWeek] = useState("2");
   const [templateId, setTemplateId] = useState("coach-mike-2day");
+  const [enableSkincare, setEnableSkincare] = useState(true);
+  const [enableOmad, setEnableOmad] = useState(false);
+  const [enableFasting, setEnableFasting] = useState(false);
+  const [enableHygiene, setEnableHygiene] = useState(true);
+  const [hygieneItems, setHygieneItems] = useState(["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"]);
+  const [newHygieneItem, setNewHygieneItem] = useState("");
   const [strengths, setStrengths] = useState("");
   const [motivation, setMotivation] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,6 +46,11 @@ export default function OnboardingWizard({ user, onComplete }) {
       workoutTemplateId: templateId,
       workoutProgram: template?.program || null,
       milestones: generateMilestones(sw, gw),
+      enableSkincare,
+      enableOmad,
+      enableFasting,
+      enableHygiene,
+      hygieneItems,
       cliftonStrengths: strengths.trim() ? { raw: strengths.trim(), top5: [], top10Additional: [], summary: "" } : null,
       motivation: motivation.trim() || "",
     };
@@ -102,6 +113,38 @@ export default function OnboardingWizard({ user, onComplete }) {
           <input type="number" value={workoutsPerWeek} onChange={e => setWorkoutsPerWeek(e.target.value)} style={inp} />
         </div>
       </div>
+      {/* ── Habit Toggles ── */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, display: "block", marginBottom: 10 }}>Habit Modules</label>
+        {[
+          { key: "skincare", value: enableSkincare, setter: setEnableSkincare, label: "Track Skincare Routine" },
+          { key: "omad", value: enableOmad, setter: setEnableOmad, label: "OMAD (One Meal A Day)" },
+          { key: "fasting", value: enableFasting, setter: setEnableFasting, label: "Track Fasting Timer" },
+          { key: "hygiene", value: enableHygiene, setter: setEnableHygiene, label: "Track Daily Hygiene/Chores" },
+        ].map(toggle => (
+          <div key={toggle.key} onClick={() => toggle.setter(v => !v)} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#111827", border: "1px solid #374151", borderRadius: 10,
+            padding: "10px 14px", marginBottom: 8, cursor: "pointer", userSelect: "none",
+            transition: "all 0.15s"
+          }}>
+            <span style={{ fontSize: 13, color: toggle.value ? "#e5e7eb" : "#6b7280" }}>{toggle.label}</span>
+            <div style={{
+              width: 40, height: 22, borderRadius: 11, padding: 2,
+              background: toggle.value ? "#059669" : "#374151",
+              transition: "background 0.2s", display: "flex", alignItems: "center",
+              justifyContent: toggle.value ? "flex-end" : "flex-start"
+            }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: "50%",
+                background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                transition: "all 0.2s"
+              }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={() => setStep(0)} style={{ ...btnSecondary, flex: 1 }}>← Back</button>
         <button onClick={() => setStep(2)} style={{ ...btn, flex: 2 }}>Next →</button>
@@ -152,6 +195,52 @@ export default function OnboardingWizard({ user, onComplete }) {
         <textarea value={motivation} onChange={e => setMotivation(e.target.value)} placeholder="e.g. I want to feel confident, have more energy, look good for my wedding..." rows={3} style={{ ...inp, resize: "vertical", fontFamily: "inherit" }} />
         <p style={{ fontSize: 10, color: "#4b5563", margin: "4px 0 0" }}>Used to generate your personalized plan & daily reminders.</p>
       </div>
+
+      {/* ── Hygiene Items Editor ── */}
+      {enableHygiene && (
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, display: "block", marginBottom: 8 }}>Hygiene / Chore Checklist <span style={{ color: "#4b5563" }}>(customize items)</span></label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+            {hygieneItems.map((item, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "#111827", border: "1px solid #374151", borderRadius: 8,
+                padding: "8px 12px"
+              }}>
+                <span style={{ fontSize: 13, color: "#e5e7eb" }}>{item}</span>
+                <button onClick={() => setHygieneItems(items => items.filter((_, idx) => idx !== i))} style={{
+                  background: "none", border: "none", color: "#ef4444", cursor: "pointer",
+                  fontSize: 16, padding: "0 4px", lineHeight: 1, fontWeight: 700
+                }}>×</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={newHygieneItem}
+              onChange={e => setNewHygieneItem(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && newHygieneItem.trim()) {
+                  setHygieneItems(items => [...items, newHygieneItem.trim()]);
+                  setNewHygieneItem("");
+                }
+              }}
+              placeholder="Add new item..."
+              style={{ ...inp, flex: 1 }}
+            />
+            <button onClick={() => {
+              if (newHygieneItem.trim()) {
+                setHygieneItems(items => [...items, newHygieneItem.trim()]);
+                setNewHygieneItem("");
+              }
+            }} style={{
+              background: "#059669", border: "none", borderRadius: 10, color: "#fff",
+              fontSize: 18, fontWeight: 700, padding: "0 16px", cursor: "pointer", lineHeight: 1
+            }}>+</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={() => setStep(2)} style={{ ...btnSecondary, flex: 1 }}>← Back</button>
         <button onClick={finish} disabled={saving} style={{ ...btn, flex: 2, opacity: saving ? 0.6 : 1 }}>

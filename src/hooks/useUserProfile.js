@@ -13,29 +13,34 @@ import { WORKOUT_TEMPLATES } from "../constants/workoutTemplates";
 export default function useUserProfile(firebaseUser) {
   const [profile, setProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [prevUid, setPrevUid] = useState(null);
 
   // ── Load profile on auth change ──
   useEffect(() => {
+    const uid = firebaseUser?.uid ?? null;
+
     if (!firebaseUser) {
-      // Not signed in — try localStorage fallback (for Electron offline)
-      try {
-        const local = localStorage.getItem(PROFILE_KEY);
-        if (local) setProfile(JSON.parse(local));
-      } catch {}
+      // Not signed in — clear profile (sign-out or fresh load)
+      if (prevUid) {
+        // Was signed in before → explicit sign-out
+        setProfile(null);
+      }
+      setPrevUid(null);
       setProfileLoaded(true);
       return;
     }
 
+    setPrevUid(uid);
+
     (async () => {
       try {
         if (!firebaseEnabled) {
-          const local = localStorage.getItem(PROFILE_KEY);
+          const userKey = `kensho-profile-${uid}`;
+          const local = localStorage.getItem(userKey);
           if (local) setProfile(JSON.parse(local));
           setProfileLoaded(true);
           return;
         }
-
-        const uid = firebaseUser.uid;
         const profileRef = doc(db, "users", uid, "meta", "profile");
         const profileSnap = await getDoc(profileRef);
 
@@ -48,7 +53,7 @@ export default function useUserProfile(firebaseUser) {
             if (tpl) data.workoutProgram = tpl.program;
           }
           setProfile(data);
-          localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+          localStorage.setItem(`kensho-profile-${uid}`, JSON.stringify(data));
           setProfileLoaded(true);
           return;
         }
@@ -67,7 +72,7 @@ export default function useUserProfile(firebaseUser) {
           };
           await setDoc(profileRef, ckProfile);
           setProfile(ckProfile);
-          localStorage.setItem(PROFILE_KEY, JSON.stringify(ckProfile));
+          localStorage.setItem(`kensho-profile-${uid}`, JSON.stringify(ckProfile));
           console.log("✅ KENSHO: Migrated CK profile to Firestore");
         } else {
           // Brand new user — needs onboarding
@@ -76,9 +81,9 @@ export default function useUserProfile(firebaseUser) {
         setProfileLoaded(true);
       } catch (err) {
         console.error("Profile load failed:", err);
-        // Fallback to localStorage
+        // Fallback to localStorage (per-user key)
         try {
-          const local = localStorage.getItem(PROFILE_KEY);
+          const local = localStorage.getItem(`kensho-profile-${uid}`);
           if (local) setProfile(JSON.parse(local));
         } catch {}
         setProfileLoaded(true);
@@ -90,15 +95,18 @@ export default function useUserProfile(firebaseUser) {
   const saveProfile = useCallback(async (updates) => {
     const newProfile = { ...(profile || DEFAULT_PROFILE), ...updates, lastModified: Date.now() };
     setProfile(newProfile);
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
 
-    if (firebaseEnabled && firebaseUser) {
-      try {
-        const uid = firebaseUser.uid;
-        const profileRef = doc(db, "users", uid, "meta", "profile");
-        await setDoc(profileRef, newProfile, { merge: true });
-      } catch (err) {
-        console.error("Profile save to Firestore failed:", err);
+    if (firebaseUser) {
+      const uid = firebaseUser.uid;
+      localStorage.setItem(`kensho-profile-${uid}`, JSON.stringify(newProfile));
+
+      if (firebaseEnabled) {
+        try {
+          const profileRef = doc(db, "users", uid, "meta", "profile");
+          await setDoc(profileRef, newProfile, { merge: true });
+        } catch (err) {
+          console.error("Profile save to Firestore failed:", err);
+        }
       }
     }
   }, [profile, firebaseUser]);

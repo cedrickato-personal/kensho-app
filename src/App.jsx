@@ -171,11 +171,11 @@ function KenshoTracker() {
 
   const { profile, profileLoaded, saveProfile, needsOnboarding } = useUserProfile(fbUser);
 
-  const GOAL_WEIGHT = profile?.goalWeight || 75;
-  const START_WEIGHT = profile?.startWeight || 94;
-  const CAL_TARGET = profile?.calTarget || 1850;
+  const GOAL_WEIGHT = profile?.goalWeight || 70;
+  const START_WEIGHT = profile?.startWeight || 85;
+  const CAL_TARGET = profile?.calTarget || 2000;
   const WATER_GOAL = profile?.waterGoal || 8;
-  const STEP_GOAL = profile?.stepGoal || 7000;
+  const STEP_GOAL = profile?.stepGoal || 10000;
   const MILESTONES = profile?.milestones || [];
   const WORKOUT_PROGRAM = profile?.workoutProgram || {};
   const EXERCISES_DERIVED = {};
@@ -321,7 +321,7 @@ function KenshoTracker() {
   const calPct = Math.min(100, Math.round((dayTotals.cal / CAL_TARGET) * 100));
   const calOver = dayTotals.cal > CAL_TARGET;
 
-  const getStreak = () => { let s = 0, d = new Date(today + "T00:00:00"); while (true) { const k = d.toISOString().split("T")[0]; const dd = data?.days?.[k]; const stepsOk = dd && ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true); if (dd && stepsOk && dd.skincare && dd.omad) { s++; d.setDate(d.getDate() - 1); } else break; } return s; };
+  const getStreak = () => { let s = 0, d = new Date(today + "T00:00:00"); while (true) { const k = d.toISOString().split("T")[0]; const dd = data?.days?.[k]; const stepsOk = dd && ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true); const skincareOk = profile?.enableSkincare === false || dd?.skincare; const omadOk = !profile?.enableOmad || dd?.omad; if (dd && stepsOk && skincareOk && omadOk) { s++; d.setDate(d.getDate() - 1); } else break; } return s; };
   const weekWorkouts = () => { const ws = getWeekStart(activeDate); return Object.entries(data?.days || {}).filter(([date, d]) => getWeekStart(date) === ws && d.workout).length; };
   const latestWeight = () => { const e = Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => b[0].localeCompare(a[0])); return e.length > 0 ? e[0][1].weight : START_WEIGHT; };
   const weightHistory = () => Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => a[0].localeCompare(b[0])).slice(-20).map(([date, d]) => ({ date, weight: d.weight }));
@@ -351,6 +351,20 @@ function KenshoTracker() {
   const goToday = () => setSelectedDate(today);
 
   if (!profileLoaded || loading) return <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ color: "#6b7280", fontSize: 14 }}>Loading…</div></div>;
+
+  // ── Sign-in portal for unauthenticated visitors ──
+  if (fbEnabled && !fbUser) return (
+    <div style={{ minHeight: "100vh", background: "#030712", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <KenshoLogo />
+      <h1 style={{ color: "#e5e7eb", fontSize: 28, fontWeight: 800, margin: "16px 0 4px", letterSpacing: 2 }}>KENSHO</h1>
+      <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 8px", letterSpacing: 1.5, textTransform: "uppercase" }}>Reveal Your True Nature</p>
+      <p style={{ color: "#4b5563", fontSize: 13, margin: "0 0 32px", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>Track your fitness, nutrition, and daily habits. Personalized goals, AI-powered insights, and real-time sync across devices.</p>
+      <button onClick={signIn} style={{ background: "linear-gradient(135deg, #34d399, #60a5fa)", border: "none", borderRadius: 14, padding: "14px 32px", color: "#030712", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 18 }}>G</span> Sign in with Google
+      </button>
+      <p style={{ color: "#374151", fontSize: 11, marginTop: 8 }}>Your data syncs securely via Google account</p>
+    </div>
+  );
 
   if (needsOnboarding && fbUser) return <OnboardingWizard user={fbUser} onComplete={saveProfile} />;
 
@@ -490,7 +504,7 @@ function KenshoTracker() {
             <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{isToday ? "Today's Reminder" : formatDateLabel(activeDate, today)}</div>
             <p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.5, margin: 0 }}>{dailyReminder}</p>
           </div>
-          {isToday && fastingNow && <div style={{ ...st.card, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(120,53,15,0.15)" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 10, color: "#d97706", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Fasting Timer</div><div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 4 }}>⏱ {fastingNow}</div></div><div style={{ fontSize: 11, color: "#6b7280" }}>since last meal</div></div></div>}
+          {isToday && fastingNow && (profile?.enableFasting || profile?.enableOmad) && <div style={{ ...st.card, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(120,53,15,0.15)" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 10, color: "#d97706", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Fasting Timer</div><div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 4 }}>⏱ {fastingNow}</div></div><div style={{ fontSize: 11, color: "#6b7280" }}>since last meal</div></div></div>}
           <div style={{ ...st.card, border: `1px solid ${calOver ? "rgba(239,68,68,0.4)" : "rgba(55,65,81,0.5)"}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontSize: 12, fontWeight: 700, color: "#9ca3af" }}>🍽 CALORIES</span><span style={{ fontSize: 14, fontWeight: 700, color: calOver ? "#ef4444" : dayTotals.cal > 0 ? "#fbbf24" : "#6b7280" }}>{dayTotals.cal} / {CAL_TARGET}</span></div>
             <div style={{ width: "100%", height: 8, background: "#1f2937", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", background: calOver ? "#ef4444" : calPct > 80 ? "#f59e0b" : "#10b981", borderRadius: 99, width: `${calPct}%`, transition: "width 0.3s" }} /></div>
@@ -515,43 +529,33 @@ function KenshoTracker() {
               )}
             </div>
           </div>
-          {[{ field: "skincare", label: "Skincare Routine", sub: "Cleanser → Moisturizer → Sunscreen (AM)" }, { field: "omad", label: "OMAD — 1,850 cal", sub: "One meal, stay the course" }].map(({ field, label, sub }) => (
-            <button key={field} onClick={() => toggle(field)} style={{ width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td[field] ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td[field] ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td[field] ? "#10b981" : "#4b5563"}`, background: td[field] ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td[field] ? "✓" : ""}</div>
-              <div><p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>{label}</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>{sub}</p></div>
+          {profile?.enableSkincare !== false && (
+            <button onClick={() => toggle("skincare")} style={{ width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td.skincare ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.skincare ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.skincare ? "#10b981" : "#4b5563"}`, background: td.skincare ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.skincare ? "✓" : ""}</div>
+              <div><p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>Skincare Routine</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>Cleanser → Moisturizer → Sunscreen (AM)</p></div>
             </button>
-          ))}
+          )}
+          {profile?.enableOmad && (
+            <button onClick={() => toggle("omad")} style={{ width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td.omad ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.omad ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.omad ? "#10b981" : "#4b5563"}`, background: td.omad ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.omad ? "✓" : ""}</div>
+              <div><p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>OMAD — {CAL_TARGET} cal</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>One meal, stay the course</p></div>
+            </button>
+          )}
+          {profile?.enableHygiene !== false && <>
           <div style={{ ...st.label, marginTop: 16 }}>🧼 Hygiene</div>
           <div style={st.card}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-              {[{ field: "brushAM", label: "🪥 Brush AM" }, { field: "brushPM", label: "🪥 Brush PM" }].map(({ field, label }) => (
-                <button key={field} onClick={() => toggle(field)} style={{ padding: "12px", borderRadius: 12, border: `2px solid ${td[field] ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td[field] ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 99, border: `2px solid ${td[field] ? "#10b981" : "#4b5563"}`, background: td[field] ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, color: "#fff", fontWeight: 700 }}>{td[field] ? "✓" : ""}</div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb" }}>{label}</span>
+            {(profile?.hygieneItems || ["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"]).map((item, idx) => {
+              const fieldKey = `hygiene_${idx}`;
+              const isDone = td[fieldKey] || false;
+              return (
+                <button key={fieldKey} onClick={() => updateDay(day => { day[fieldKey] = !day[fieldKey]; })} style={{ width: "100%", textAlign: "left", padding: "12px 16px", borderRadius: 12, border: `2px solid ${isDone ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: isDone ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 99, border: `2px solid ${isDone ? "#10b981" : "#4b5563"}`, background: isDone ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, color: "#fff", fontWeight: 700 }}>{isDone ? "✓" : ""}</div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb" }}>{item}</span>
                 </button>
-              ))}
-            </div>
-            <button onClick={() => toggle("bathing")} style={{ width: "100%", textAlign: "left", padding: "12px 16px", borderRadius: 12, border: `2px solid ${td.bathing ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.bathing ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 99, border: `2px solid ${td.bathing ? "#10b981" : "#4b5563"}`, background: td.bathing ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, color: "#fff", fontWeight: 700 }}>{td.bathing ? "✓" : ""}</div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb" }}>🚿 Bathing</span>
-            </button>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[{ field: "laundry", label: "👕 Laundry" }, { field: "roomCleaned", label: "🧹 Room Cleaned" }].map(({ field, label }) => {
-                const weekDates = getWeekDates(activeDate);
-                const doneThisWeek = weekDates.some(d => data?.days?.[d]?.[field]);
-                const isDoneToday = td[field];
-                return (
-                  <button key={field} onClick={() => toggle(field)} style={{ padding: "12px", borderRadius: 12, border: `2px solid ${isDoneToday ? "rgba(16,185,129,0.5)" : doneThisWeek ? "rgba(59,130,246,0.4)" : "rgba(55,65,81,0.5)"}`, background: isDoneToday ? "rgba(6,78,59,0.3)" : doneThisWeek ? "rgba(30,58,138,0.2)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 99, border: `2px solid ${isDoneToday ? "#10b981" : doneThisWeek ? "#3b82f6" : "#4b5563"}`, background: isDoneToday ? "#10b981" : doneThisWeek ? "#3b82f6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, color: "#fff", fontWeight: 700 }}>{(isDoneToday || doneThisWeek) ? "✓" : ""}</div>
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", display: "block" }}>{label}</span>
-                      <span style={{ fontSize: 10, color: doneThisWeek ? "#60a5fa" : "#6b7280" }}>{doneThisWeek ? "Done this week ✓" : "Weekly"}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
+          </>}
           <div style={{ ...st.label, marginTop: 16 }}>💧 Water ({td.water}/{WATER_GOAL} glasses)</div>
           <div style={st.card}>
             <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
