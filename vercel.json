@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npx cross-env VITE_BUILD_TARGET=pwa npx vite build",
+  "outputDirectory": "dist-pwa",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "name": "kensho-tracker",
+  "version": "6.0.0",
+  "description": "KENSHO Fitness & Life Tracker — Desktop App",
+  "author": "CK",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:pwa": "cross-env VITE_BUILD_TARGET=pwa vite",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:vite": "vite build",
+    "build": "vite build && electron-builder --win --config.win.signAndEditExecutable=false",
+    "build:pwa": "cross-env VITE_BUILD_TARGET=pwa vite build",
+    "preview:pwa": "cross-env VITE_BUILD_TARGET=pwa vite build && vite preview --outDir dist-pwa",
+    "pack": "vite build && electron-builder --win --dir --config.win.signAndEditExecutable=false"
+  },
+  "build": {
+    "appId": "com.kensho.tracker",
+    "productName": "KENSHO Tracker",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KENSHO Tracker"
+    }
+  },
+  "dependencies": {
+    "firebase": "^12.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.7",
+    "vite-plugin-pwa": "^1.2.0",
+    "wait-on": "^8.0.3"
+  }
+}

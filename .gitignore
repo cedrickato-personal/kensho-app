@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-pwa/
+dist-electron/
+.env
+*.exe
+*.dmg
+*.AppImage
