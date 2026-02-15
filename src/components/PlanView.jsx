@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const st = { card: { background: "rgba(17,24,39,0.7)", borderRadius: 20, padding: "18px 16px", marginBottom: 10, border: "1px solid #1f2937" } };
 
-export default function PlanView({ profile, saveProfile }) {
+export default function PlanView({ profile, saveProfile, latestWeight }) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState("");
   const sections = profile?.planSections || [];
@@ -35,10 +35,15 @@ Return ONLY valid JSON:
     { "id": "overload", "title": "Progressive Overload", "icon": "💪", "color": "rgba(251,191,36,0.3)", "content": "How to progress..." },
     { "id": "timeline", "title": "Your Timeline", "icon": "⏱", "color": "rgba(251,113,133,0.3)", "items": [{"title":"...","desc":"..."}] }
   ],
+  "milestones": [
+    { "kg": <weight milestone>, "label": "Milestone name", "emoji": "🔥", "face": "What changes at this weight" }
+  ],
   "constantQuote": "A personalized motivational quote for this person...",
   "dailyReminders": ["reminder 1", "reminder 2", ... up to 20 personalized daily reminders]
   ${strengths?.raw ? `, "cliftonStrengths": { "top5": [{"rank":1,"name":"...","domain":"...","color":"#8b5cf6","emoji":"...","desc":"...","fitness":"How this strength helps fitness..."}], "domains": [{"label":"...","count":1,"color":"#8b5cf6"}], "summary": "A strengths DNA summary..." }` : ""}
-}`;
+}
+
+Generate 4-5 milestones between ${profile.startWeight}kg and ${profile.goalWeight}kg, each with a descriptive "face" field explaining visible body changes at that weight.`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -50,6 +55,7 @@ Return ONLY valid JSON:
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
 
       const updates = { planSections: parsed.sections || [] };
+      if (parsed.milestones?.length) updates.milestones = parsed.milestones;
       if (parsed.constantQuote) updates.constantQuote = parsed.constantQuote;
       if (parsed.dailyReminders?.length) updates.dailyReminders = parsed.dailyReminders;
       if (parsed.cliftonStrengths?.top5?.length) updates.cliftonStrengths = { ...strengths, ...parsed.cliftonStrengths };
@@ -104,6 +110,29 @@ Return ONLY valid JSON:
           ) : null}
         </div>
       ))}
+
+      {/* Milestones section */}
+      {profile?.milestones?.length > 0 && (
+        <div style={{ ...st.card, border: "1px solid rgba(251,191,36,0.3)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+            🏔️ Weight Milestones
+          </div>
+          {profile.milestones.map((m, i) => {
+            const cw = latestWeight || profile?.startWeight || 90;
+            const reached = cw <= m.kg;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: i < profile.milestones.length - 1 ? "1px solid rgba(55,65,81,0.3)" : "none", opacity: reached ? 1 : 0.5 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 99, border: `2px solid ${reached ? "#10b981" : "#4b5563"}`, background: reached ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 12, color: "#fff", fontWeight: 700, marginTop: 2 }}>{reached ? "✓" : ""}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: reached ? "#fff" : "#9ca3af" }}>{m.emoji} {m.label} — {m.kg}kg</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{m.face}</div>
+                  {!reached && cw > m.kg && <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>{(cw - m.kg).toFixed(1)}kg away</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* CliftonStrengths section */}
       {strengths?.top5?.length > 0 && (

@@ -21,8 +21,14 @@ export default function OnboardingWizard({ user, onComplete }) {
   const [enableOmad, setEnableOmad] = useState(false);
   const [enableFasting, setEnableFasting] = useState(false);
   const [enableHygiene, setEnableHygiene] = useState(true);
-  const [hygieneItems, setHygieneItems] = useState(["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"]);
+  const [hygieneItems, setHygieneItems] = useState([
+    { name: "Brush teeth", emoji: "🪥", twiceDaily: true },
+    { name: "Shower/bathe", emoji: "🚿", twiceDaily: false },
+    { name: "Laundry", emoji: "👕", twiceDaily: false },
+    { name: "Clean room", emoji: "🧹", twiceDaily: false },
+  ]);
   const [newHygieneItem, setNewHygieneItem] = useState("");
+  const [newHygieneEmoji, setNewHygieneEmoji] = useState("✅");
   const [strengths, setStrengths] = useState("");
   const [motivation, setMotivation] = useState("");
   const [saving, setSaving] = useState(false);
@@ -203,11 +209,18 @@ export default function OnboardingWizard({ user, onComplete }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
             {hygieneItems.map((item, i) => (
               <div key={i} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
+                display: "flex", alignItems: "center", gap: 10,
                 background: "#111827", border: "1px solid #374151", borderRadius: 8,
                 padding: "8px 12px"
               }}>
-                <span style={{ fontSize: 13, color: "#e5e7eb" }}>{item}</span>
+                <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                <span style={{ fontSize: 13, color: "#e5e7eb", flex: 1 }}>{item.name}</span>
+                <button onClick={() => setHygieneItems(items => items.map((it, idx) => idx === i ? { ...it, twiceDaily: !it.twiceDaily } : it))} style={{
+                  background: item.twiceDaily ? "rgba(16,185,129,0.2)" : "rgba(55,65,81,0.3)",
+                  border: item.twiceDaily ? "1px solid rgba(16,185,129,0.4)" : "1px solid #374151",
+                  borderRadius: 6, color: item.twiceDaily ? "#34d399" : "#6b7280", cursor: "pointer",
+                  fontSize: 10, fontWeight: 600, padding: "3px 8px"
+                }}>{item.twiceDaily ? "AM/PM" : "1×"}</button>
                 <button onClick={() => setHygieneItems(items => items.filter((_, idx) => idx !== i))} style={{
                   background: "none", border: "none", color: "#ef4444", cursor: "pointer",
                   fontSize: 16, padding: "0 4px", lineHeight: 1, fontWeight: 700
@@ -215,14 +228,20 @@ export default function OnboardingWizard({ user, onComplete }) {
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={newHygieneEmoji}
+              onChange={e => setNewHygieneEmoji(e.target.value)}
+              style={{ ...inp, width: 44, textAlign: "center", padding: "10px 4px", fontSize: 16 }}
+              maxLength={2}
+            />
             <input
               value={newHygieneItem}
               onChange={e => setNewHygieneItem(e.target.value)}
               onKeyDown={e => {
                 if (e.key === "Enter" && newHygieneItem.trim()) {
-                  setHygieneItems(items => [...items, newHygieneItem.trim()]);
-                  setNewHygieneItem("");
+                  setHygieneItems(items => [...items, { name: newHygieneItem.trim(), emoji: newHygieneEmoji || "✅", twiceDaily: false }]);
+                  setNewHygieneItem(""); setNewHygieneEmoji("✅");
                 }
               }}
               placeholder="Add new item..."
@@ -230,14 +249,15 @@ export default function OnboardingWizard({ user, onComplete }) {
             />
             <button onClick={() => {
               if (newHygieneItem.trim()) {
-                setHygieneItems(items => [...items, newHygieneItem.trim()]);
-                setNewHygieneItem("");
+                setHygieneItems(items => [...items, { name: newHygieneItem.trim(), emoji: newHygieneEmoji || "✅", twiceDaily: false }]);
+                setNewHygieneItem(""); setNewHygieneEmoji("✅");
               }
             }} style={{
               background: "#059669", border: "none", borderRadius: 10, color: "#fff",
               fontSize: 18, fontWeight: 700, padding: "0 16px", cursor: "pointer", lineHeight: 1
             }}>+</button>
           </div>
+          <p style={{ fontSize: 10, color: "#4b5563", margin: "6px 0 0" }}>Tap "1×" to make an item twice daily (AM/PM)</p>
         </div>
       )}
 

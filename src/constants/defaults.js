@@ -13,7 +13,12 @@ export const CK_PROFILE = {
   enableOmad: true,
   enableFasting: true,
   enableHygiene: true,
-  hygieneItems: ["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"],
+  hygieneItems: [
+    { name: "Brush teeth", emoji: "🪥", twiceDaily: true },
+    { name: "Shower/bathe", emoji: "🚿", twiceDaily: false },
+    { name: "Laundry", emoji: "👕", twiceDaily: false },
+    { name: "Clean room", emoji: "🧹", twiceDaily: false },
+  ],
   milestones: [
     { kg: 90, label: "First 4kg down", emoji: "🔥", face: "Neck thins out, clothes looser" },
     { kg: 88, label: "People notice", emoji: "👀", face: "Under-chin tightens, jawline hints" },
@@ -103,7 +108,12 @@ export const DEFAULT_PROFILE = {
   enableOmad: false,
   enableFasting: false,
   enableHygiene: true,
-  hygieneItems: ["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"],
+  hygieneItems: [
+    { name: "Brush teeth", emoji: "🪥", twiceDaily: true },
+    { name: "Shower/bathe", emoji: "🚿", twiceDaily: false },
+    { name: "Laundry", emoji: "👕", twiceDaily: false },
+    { name: "Clean room", emoji: "🧹", twiceDaily: false },
+  ],
   workoutProgram: null, // filled from template selection
   milestones: [], // auto-generated
   constantQuote: "The minimum effective dose: show up, track everything, trust the process.",

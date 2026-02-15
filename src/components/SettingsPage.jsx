@@ -16,13 +16,22 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
   const [templateId, setTemplateId] = useState(profile?.workoutTemplateId || "coach-mike-2day");
 
   // Habit tracking state
-  const defaultHygieneItems = ["Brush teeth", "Shower", "Skincare AM", "Skincare PM", "Laundry", "Clean room"];
+  const defaultHygieneItems = [
+    { name: "Brush teeth", emoji: "🪥", twiceDaily: true },
+    { name: "Shower/bathe", emoji: "🚿", twiceDaily: false },
+    { name: "Laundry", emoji: "👕", twiceDaily: false },
+    { name: "Clean room", emoji: "🧹", twiceDaily: false },
+  ];
   const [enableSkincare, setEnableSkincare] = useState(profile?.enableSkincare ?? false);
   const [enableOmad, setEnableOmad] = useState(profile?.enableOmad ?? false);
   const [enableFasting, setEnableFasting] = useState(profile?.enableFasting ?? false);
   const [enableHygiene, setEnableHygiene] = useState(profile?.enableHygiene ?? false);
-  const [hygieneItems, setHygieneItems] = useState(profile?.hygieneItems || defaultHygieneItems);
+  const [hygieneItems, setHygieneItems] = useState(() => {
+    const items = profile?.hygieneItems || defaultHygieneItems;
+    return items.map(it => typeof it === "string" ? { name: it, emoji: "✅", twiceDaily: false } : it);
+  });
   const [newHygieneItem, setNewHygieneItem] = useState("");
+  const [newHygieneEmoji, setNewHygieneEmoji] = useState("✅");
   const [saved, setSaved] = useState(false);
   const [tz, setTz] = useState(timezone);
 
@@ -145,7 +154,19 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {hygieneItems.map((item, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "#111827", borderRadius: 8, padding: "6px 10px" }}>
-                  <span style={{ flex: 1, fontSize: 13, color: "#d1d5db" }}>{item}</span>
+                  <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: "#d1d5db" }}>{item.name}</span>
+                  <button
+                    onClick={() => setHygieneItems(hygieneItems.map((it, idx) => idx === i ? { ...it, twiceDaily: !it.twiceDaily } : it))}
+                    style={{
+                      background: item.twiceDaily ? "rgba(16,185,129,0.2)" : "rgba(55,65,81,0.3)",
+                      border: item.twiceDaily ? "1px solid rgba(16,185,129,0.4)" : "1px solid #374151",
+                      borderRadius: 6, color: item.twiceDaily ? "#34d399" : "#6b7280", cursor: "pointer",
+                      fontSize: 10, fontWeight: 600, padding: "3px 8px"
+                    }}
+                  >
+                    {item.twiceDaily ? "AM/PM" : "1×"}
+                  </button>
                   <button
                     onClick={() => setHygieneItems(hygieneItems.filter((_, idx) => idx !== i))}
                     style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 14, cursor: "pointer", padding: "2px 6px" }}
@@ -155,14 +176,20 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={newHygieneEmoji}
+                onChange={e => setNewHygieneEmoji(e.target.value)}
+                style={{ ...inp, width: 44, textAlign: "center", padding: "10px 4px", fontSize: 16 }}
+                maxLength={2}
+              />
               <input
                 value={newHygieneItem}
                 onChange={e => setNewHygieneItem(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === "Enter" && newHygieneItem.trim()) {
-                    setHygieneItems([...hygieneItems, newHygieneItem.trim()]);
-                    setNewHygieneItem("");
+                    setHygieneItems([...hygieneItems, { name: newHygieneItem.trim(), emoji: newHygieneEmoji || "✅", twiceDaily: false }]);
+                    setNewHygieneItem(""); setNewHygieneEmoji("✅");
                   }
                 }}
                 placeholder="Add item..."
@@ -171,8 +198,8 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
               <button
                 onClick={() => {
                   if (newHygieneItem.trim()) {
-                    setHygieneItems([...hygieneItems, newHygieneItem.trim()]);
-                    setNewHygieneItem("");
+                    setHygieneItems([...hygieneItems, { name: newHygieneItem.trim(), emoji: newHygieneEmoji || "✅", twiceDaily: false }]);
+                    setNewHygieneItem(""); setNewHygieneEmoji("✅");
                   }
                 }}
                 style={{
@@ -184,6 +211,7 @@ export default function SettingsPage({ profile, saveProfile, timezone, onTimezon
                 Add
               </button>
             </div>
+            <p style={{ fontSize: 10, color: "#4b5563", margin: "6px 0 0" }}>Tap "1×" to toggle twice daily (AM/PM)</p>
           </div>
         )}
       </div>

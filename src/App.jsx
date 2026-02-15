@@ -355,8 +355,8 @@ function KenshoTracker() {
   // ── Sign-in portal for unauthenticated visitors ──
   if (fbEnabled && !fbUser) return (
     <div style={{ minHeight: "100vh", background: "#030712", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <KenshoLogo />
-      <h1 style={{ color: "#e5e7eb", fontSize: 28, fontWeight: 800, margin: "16px 0 4px", letterSpacing: 2 }}>KENSHO</h1>
+      <img src="/kensho-logo-white.png" alt="Kensho" style={{ width: 120, height: 120, objectFit: "contain", marginBottom: 16, opacity: 0.95 }} />
+      <h1 style={{ color: "#e5e7eb", fontSize: 28, fontWeight: 800, margin: "0 0 4px", letterSpacing: 2 }}>KENSHO</h1>
       <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 8px", letterSpacing: 1.5, textTransform: "uppercase" }}>Reveal Your True Nature</p>
       <p style={{ color: "#4b5563", fontSize: 13, margin: "0 0 32px", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>Track your fitness, nutrition, and daily habits. Personalized goals, AI-powered insights, and real-time sync across devices.</p>
       <button onClick={signIn} style={{ background: "linear-gradient(135deg, #34d399, #60a5fa)", border: "none", borderRadius: 14, padding: "14px 32px", color: "#030712", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -477,7 +477,7 @@ function KenshoTracker() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
           <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#fb923c" }}>🔥 {streak}</div><div style={{ fontSize: 10, color: "#6b7280" }}>Streak</div></div>
-          <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: ww >= 2 ? "#34d399" : "#6b7280" }}>💪 {ww}/2</div><div style={{ fontSize: 10, color: "#6b7280" }}>This Week</div></div>
+          <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: ww >= (profile?.workoutsPerWeek || maxDay) ? "#34d399" : "#6b7280" }}>💪 {ww}/{profile?.workoutsPerWeek || maxDay}</div><div style={{ fontSize: 10, color: "#6b7280" }}>This Week</div></div>
           <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#60a5fa" }}>📊 {completionRate()}%</div><div style={{ fontSize: 10, color: "#6b7280" }}>All-Time</div></div>
         </div>
       </div>
@@ -544,13 +544,34 @@ function KenshoTracker() {
           {profile?.enableHygiene !== false && <>
           <div style={{ ...st.label, marginTop: 16 }}>🧼 Hygiene</div>
           <div style={st.card}>
-            {(profile?.hygieneItems || ["Brush teeth AM", "Brush teeth PM", "Shower/bathe", "Laundry", "Clean room"]).map((item, idx) => {
+            {(profile?.hygieneItems || [{ name: "Brush teeth", emoji: "🪥", twiceDaily: true }, { name: "Shower/bathe", emoji: "🚿", twiceDaily: false }, { name: "Laundry", emoji: "👕", twiceDaily: false }, { name: "Clean room", emoji: "🧹", twiceDaily: false }]).map((rawItem, idx) => {
+              const item = typeof rawItem === "string" ? { name: rawItem, emoji: "✅", twiceDaily: false } : rawItem;
+              if (item.twiceDaily) {
+                const amKey = `hygiene_${idx}_am`;
+                const pmKey = `hygiene_${idx}_pm`;
+                const amDone = td[amKey] || false;
+                const pmDone = td[pmKey] || false;
+                return (
+                  <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <button onClick={() => updateDay(day => { day[amKey] = !day[amKey]; })} style={{ flex: 1, textAlign: "left", padding: "12px 14px", borderRadius: 12, border: `2px solid ${amDone ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: amDone ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 99, border: `2px solid ${amDone ? "#10b981" : "#4b5563"}`, background: amDone ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, color: "#fff", fontWeight: 700 }}>{amDone ? "✓" : ""}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb" }}>{item.emoji} {item.name}</span>
+                      <span style={{ fontSize: 10, color: "#6b7280", marginLeft: "auto" }}>AM</span>
+                    </button>
+                    <button onClick={() => updateDay(day => { day[pmKey] = !day[pmKey]; })} style={{ flex: 1, textAlign: "left", padding: "12px 14px", borderRadius: 12, border: `2px solid ${pmDone ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: pmDone ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 99, border: `2px solid ${pmDone ? "#10b981" : "#4b5563"}`, background: pmDone ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, color: "#fff", fontWeight: 700 }}>{pmDone ? "✓" : ""}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb" }}>{item.emoji} {item.name}</span>
+                      <span style={{ fontSize: 10, color: "#6b7280", marginLeft: "auto" }}>PM</span>
+                    </button>
+                  </div>
+                );
+              }
               const fieldKey = `hygiene_${idx}`;
               const isDone = td[fieldKey] || false;
               return (
                 <button key={fieldKey} onClick={() => updateDay(day => { day[fieldKey] = !day[fieldKey]; })} style={{ width: "100%", textAlign: "left", padding: "12px 16px", borderRadius: 12, border: `2px solid ${isDone ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: isDone ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <div style={{ width: 22, height: 22, borderRadius: 99, border: `2px solid ${isDone ? "#10b981" : "#4b5563"}`, background: isDone ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, color: "#fff", fontWeight: 700 }}>{isDone ? "✓" : ""}</div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb" }}>{item}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb" }}>{item.emoji} {item.name}</span>
                 </button>
               );
             })}
@@ -700,7 +721,7 @@ function KenshoTracker() {
         </>}
 
         {/* ===== PLAN ===== */}
-        {view === "plan" && <PlanView profile={profile} saveProfile={saveProfile} />}
+        {view === "plan" && <PlanView profile={profile} saveProfile={saveProfile} latestWeight={latestWeight()} />}
 
         {/* ===== SETTINGS ===== */}
         {view === "settings" && <SettingsPage profile={profile} saveProfile={saveProfile} timezone={timezone} onTimezoneChange={saveTz} onSignOut={fbSignOut} />}
