@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, Component } from "react";
-import SEED_DATA from "./seed-data.json";
 import useFirebaseSync from "./useFirebaseSync";
 import useUserProfile from "./hooks/useUserProfile";
 import OnboardingWizard from "./components/OnboardingWizard";
@@ -29,25 +28,6 @@ class ErrorBoundary extends Component {
   }
 }
 
-// Seed data from Claude export on first launch
-(function seedOnce() {
-  if (localStorage.getItem("arcadia-tracker-v2")) return; // already has data
-  try {
-    const seed = SEED_DATA;
-    if (seed?.tracker) {
-      localStorage.setItem("arcadia-tracker-v2", JSON.stringify(seed.tracker));
-    }
-    if (seed?.photos) {
-      localStorage.setItem("kensho-photos-v1", JSON.stringify(seed.photos));
-    }
-    if (seed?.timezone) {
-      localStorage.setItem("kensho-timezone-v1", seed.timezone);
-    }
-    console.log("✅ KENSHO: Seeded data from Claude export (" + Object.keys(seed?.tracker?.days || {}).length + " days)");
-  } catch (e) {
-    console.warn("KENSHO: No seed data or seed failed", e);
-  }
-})();
 
 const STORAGE_KEY = "arcadia-tracker-v2";
 const PHOTO_KEY = "kensho-photos-v1";
