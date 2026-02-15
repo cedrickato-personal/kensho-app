@@ -346,7 +346,7 @@ function KenshoTracker() {
   const latestWeight = () => { const e = Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => b[0].localeCompare(a[0])); return e.length > 0 ? e[0][1].weight : START_WEIGHT; };
   const weightHistory = () => Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => a[0].localeCompare(b[0])).slice(-20).map(([date, d]) => ({ date, weight: d.weight }));
   const completionRate = () => { const entries = Object.entries(data?.days || {}); if (!entries.length) return 0; let total = 0, done = 0; entries.forEach(([_, d]) => { total += 3; if ((typeof d.steps === 'number' && d.steps >= STEP_GOAL) || d.steps === true) done++; if (d.skincare) done++; if (d.omad) done++; }); return Math.round((done / total) * 100); };
-  const nextMilestone = () => { const cw = latestWeight(); for (const m of MILESTONES) { if (cw > m.kg) return m; } return MILESTONES[MILESTONES.length - 1]; };
+  const nextMilestone = () => { if (!MILESTONES.length) return { kg: GOAL_WEIGHT, label: "Goal weight", emoji: "🎯", face: "" }; const cw = latestWeight(); for (const m of MILESTONES) { if (cw > m.kg) return m; } return MILESTONES[MILESTONES.length - 1]; };
   const getDayScore = (dateStr) => { const dd = data?.days?.[dateStr]; if (!dd) return 0; let s = 0; if ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true) s++; if (dd.skincare) s++; if (dd.omad) s++; if (dd.workout) s++; return s; };
 
   const getDayPoints = (dd) => {
