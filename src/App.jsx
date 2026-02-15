@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Component } from "react";
 import SEED_DATA from "./seed-data.json";
 import useFirebaseSync from "./useFirebaseSync";
 import useUserProfile from "./hooks/useUserProfile";
@@ -7,6 +7,27 @@ import SettingsPage from "./components/SettingsPage";
 import PlanView from "./components/PlanView";
 import { TIMEZONES } from "./constants/defaults";
 import { WORKOUT_TEMPLATES } from "./constants/workoutTemplates";
+
+// ── Error boundary to prevent blank-screen crashes ──
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("KENSHO crash:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#030712", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, color: "#e5e7eb", fontFamily: "-apple-system, sans-serif" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>KENSHO crashed</h2>
+          <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16, textAlign: "center" }}>{this.state.error?.message || "Unknown error"}</p>
+          <button onClick={() => { localStorage.removeItem("kensho-profile-v1"); window.location.reload(); }} style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 10, padding: "10px 20px", color: "#d1d5db", cursor: "pointer", fontSize: 13, marginBottom: 8 }}>Reset Profile & Reload</button>
+          <button onClick={() => window.location.reload()} style={{ background: "transparent", border: "1px solid #374151", borderRadius: 10, padding: "10px 20px", color: "#9ca3af", cursor: "pointer", fontSize: 13 }}>Just Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Seed data from Claude export on first launch
 (function seedOnce() {
@@ -71,7 +92,7 @@ const KenshoLogo = () => (
   </svg>
 );
 
-export default function KenshoTracker() {
+function KenshoTracker() {
   const [data, setData] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -702,4 +723,8 @@ export default function KenshoTracker() {
       </div>
     </div>
   );
+}
+
+export default function App() {
+  return <ErrorBoundary><KenshoTracker /></ErrorBoundary>;
 }

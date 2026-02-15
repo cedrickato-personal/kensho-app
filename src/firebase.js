@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 // Read config from env vars (set in .env for local, Vercel env for production)
 const firebaseConfig = {
@@ -23,17 +23,19 @@ let googleProvider = null;
 if (firebaseEnabled) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
-  googleProvider = new GoogleAuthProvider();
 
-  // Enable offline persistence for Firestore
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === "failed-precondition") {
-      console.warn("Firestore persistence: multiple tabs open, only works in one");
-    } else if (err.code === "unimplemented") {
-      console.warn("Firestore persistence: not supported in this browser");
-    }
-  });
+  // Firebase v10+ persistence: use initializeFirestore with persistent cache
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (err) {
+    // If persistence fails (e.g. already initialized), fall back to basic Firestore
+    console.warn("Firestore persistent cache failed, using default:", err.message);
+    db = getFirestore(app);
+  }
+
+  googleProvider = new GoogleAuthProvider();
 }
 
 export { auth, db, googleProvider };
