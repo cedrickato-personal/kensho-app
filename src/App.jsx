@@ -426,7 +426,7 @@ function KenshoTracker() {
         </div>
       )}
       {/* HEADER */}
-      <div style={{ background: "linear-gradient(to bottom,#111827,#030712)", padding: "20px 16px 16px" }}>
+      <div style={{ background: "linear-gradient(to bottom,#111827,#030712)", padding: "20px 16px 16px", paddingTop: "calc(env(titlebar-area-height, 0px) + 20px)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <KenshoLogo />
