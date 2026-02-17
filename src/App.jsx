@@ -416,7 +416,8 @@ function KenshoTracker() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#030712", color: "#fff", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", maxWidth: 480, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#030712", color: "#fff", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
+    <div style={{ maxWidth: 480, margin: "0 auto" }}>
       {/* CUSTOM TITLE BAR */}
       {window.kensho?.isElectron && (
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", height: 32, WebkitAppRegion: "drag", background: "#030712", padding: "0 4px", position: "sticky", top: 0, zIndex: 100 }}>
@@ -725,6 +726,7 @@ function KenshoTracker() {
         {/* ===== SETTINGS ===== */}
         {view === "settings" && <SettingsPage profile={profile} saveProfile={saveProfile} timezone={timezone} onTimezoneChange={saveTz} onSignOut={fbSignOut} />}
       </div>
+    </div>
     </div>
   );
 }
