@@ -43,6 +43,11 @@ const getTimeInTz = (tz) => {
     return new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date());
   } catch { return ""; }
 };
+const getHourInTz = (tz) => {
+  try {
+    return parseInt(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hour12: false }).format(new Date()));
+  } catch { return new Date().getHours(); }
+};
 
 const getWeekStart = (ds) => { const d = new Date(ds + "T00:00:00"); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().split("T")[0]; };
 const getWeekId = (ds) => { const d = new Date(ds + "T00:00:00"); const jan1 = new Date(d.getFullYear(), 0, 1); const days = Math.floor((d - jan1) / 86400000); return `${d.getFullYear()}-W${String(Math.ceil((days + jan1.getDay() + 1) / 7)).padStart(2, "0")}`; };
@@ -86,6 +91,14 @@ function KenshoTracker() {
   const [foodInput, setFoodInput] = useState("");
   const [foodLoading, setFoodLoading] = useState(false);
   const [foodError, setFoodError] = useState("");
+  const [insightText, setInsightText] = useState("");
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [mealOption1, setMealOption1] = useState("");
+  const [mealOption2, setMealOption2] = useState("");
+  const [mealOption3, setMealOption3] = useState("");
+  const [mealAdvice, setMealAdvice] = useState("");
+  const [mealAdviceLoading, setMealAdviceLoading] = useState(false);
+  const [showLogReminder, setShowLogReminder] = useState(false);
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [showSetLogger, setShowSetLogger] = useState(false);
   const [setExercise, setSetExercise] = useState("");
@@ -101,6 +114,7 @@ function KenshoTracker() {
   const [exportEnd, setExportEnd] = useState("");
   const [exportText, setExportText] = useState("");
   const fileRef = useRef(null);
+  const notifiedToday = useRef("");
 
   const today = getNowInTz(timezone);
   const activeDate = selectedDate || today;
@@ -160,11 +174,37 @@ function KenshoTracker() {
         const diff = Date.now() - new Date(td.lastMealTime).getTime();
         setFastingNow(`${Math.floor(diff / 3600000)}h ${Math.floor((diff % 3600000) / 60000)}m`);
       } else { setFastingNow(""); }
+      // Log reminder check: after 5pm, if key fields empty for today
+      const hour = getHourInTz(timezone);
+      const todayStr = getNowInTz(timezone);
+      const todayData = data.days?.[todayStr] || {};
+      const foodEmpty = (todayData.foods || []).length === 0;
+      const stepsZero = !todayData.steps || todayData.steps === 0;
+      const waterZero = !todayData.water || todayData.water === 0;
+      const weightNull = todayData.weight === null || todayData.weight === undefined;
+      setShowLogReminder(hour >= 17 && (foodEmpty || stepsZero || waterZero || weightNull));
     };
     tick();
     const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
   }, [data, activeDate, timezone]);
+
+  // ── Log reminder notification ──
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  }, []);
+  useEffect(() => {
+    if (!showLogReminder) return;
+    const todayStr = getNowInTz(timezone);
+    if (notifiedToday.current === todayStr) return;
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Kensho Reminder", { body: "It's past 5 PM — don't forget to log your food, steps, water, and weight!", icon: "/favicon-64.png", tag: "kensho-log-reminder" });
+      notifiedToday.current = todayStr;
+    }
+  }, [showLogReminder, timezone]);
+
+  // ── Reset insight state on date change ──
+  useEffect(() => { setInsightText(""); setMealAdvice(""); }, [activeDate]);
 
   // ── Firebase sync ──
   const { firebaseEnabled: fbEnabled, user: fbUser, syncStatus, signIn, signOut: fbSignOut, pushDay, pushMeta } = useFirebaseSync();
@@ -254,6 +294,43 @@ function KenshoTracker() {
   };
 
   const removeFood = async (foodId) => { await updateDay(day => { day.foods = day.foods.filter(f => f.id !== foodId); }); };
+
+  const generateFoodInsight = async () => {
+    setInsightLoading(true);
+    try {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) { setInsightText("No API key configured."); setInsightLoading(false); return; }
+      const totals = getDayTotals(td);
+      const remaining = CAL_TARGET - totals.cal;
+      const foodList = (td.foods || []).map(f => f.input).join(", ");
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 300, messages: [{ role: "user", content: `You are a Filipino nutrition coach. Give a brief 2-3 sentence insight about my food intake today.\nCalories consumed: ${totals.cal} of ${CAL_TARGET} target (${remaining} remaining).\nProtein: ${totals.protein}g, Carbs: ${totals.carbs}g, Fat: ${totals.fat}g.\nFoods eaten: ${foodList || "Nothing yet"}.\nGoal weight: ${GOAL_WEIGHT}kg, Current weight: ${latestWeight()}kg.\nKeep it conversational, actionable, and short.` }] })
+      });
+      const result = await response.json();
+      setInsightText(result.content.map(c => c.text || "").join(""));
+    } catch { setInsightText("Couldn't generate insight. Try again."); }
+    setInsightLoading(false);
+  };
+
+  const getMealAdvice = async () => {
+    if (!mealOption1.trim() && !mealOption2.trim() && !mealOption3.trim()) return;
+    setMealAdviceLoading(true);
+    try {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) { setMealAdvice("No API key configured."); setMealAdviceLoading(false); return; }
+      const totals = getDayTotals(td);
+      const remaining = CAL_TARGET - totals.cal;
+      const options = [mealOption1, mealOption2, mealOption3].filter(o => o.trim());
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 500, messages: [{ role: "user", content: `You are a Filipino nutrition coach. I need help choosing what to eat.\nMy daily calorie target: ${CAL_TARGET}. Consumed so far: ${totals.cal} cal (${remaining} remaining).\nMacros so far - Protein: ${totals.protein}g, Carbs: ${totals.carbs}g, Fat: ${totals.fat}g.\nGoal weight: ${GOAL_WEIGHT}kg, Current weight: ${latestWeight()}kg.\n\nMy meal options:\n${options.map((o, i) => `${i + 1}. ${o}`).join("\n")}\n\nFor each option, estimate the calories and macros. Then recommend the best option considering my remaining calories, macro balance, and weight loss goal. Be concise and decisive - pick one and explain why in 3-4 sentences.` }] })
+      });
+      const result = await response.json();
+      setMealAdvice(result.content.map(c => c.text || "").join(""));
+    } catch { setMealAdvice("Couldn't get advice. Try again."); }
+    setMealAdviceLoading(false);
+  };
 
   const getDateRange = (start, end) => {
     const dates = [];
@@ -435,7 +512,7 @@ function KenshoTracker() {
           </div>
           <div style={{ textAlign: "right" }}>
             <button onClick={() => setShowTzPicker(!showTzPicker)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, textAlign: "right" }}>
-              <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace" }}>{currentTime}</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>{currentTime}{showLogReminder && <div className="log-reminder-pulse" style={{ width: 8, height: 8, borderRadius: 99, background: "#ef4444", flexShrink: 0 }} />}</div>
               <div style={{ fontSize: 9, color: "#4b5563", marginTop: 1 }}>{tzLabel.split(") ")[0]})</div>
             </button>
             {isToday && fastingNow && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>⏱ {fastingNow} fasted</div>}
@@ -484,16 +561,44 @@ function KenshoTracker() {
 
       {/* NAV */}
       <div style={{ display: "flex", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, zIndex: 10, background: "rgba(3,7,18,0.97)" }}>
-        {[["today", "Today"], ["food", "Food"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"], ["settings", "⚙️"]].map(([k, label]) => (
+        {[["today", "Today"], ["food", "Insights"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"], ["settings", "⚙️"]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)} style={{ flex: 1, padding: "12px 0", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer", background: "transparent", color: view === k ? "#34d399" : "#6b7280", borderBottom: view === k ? "2px solid #34d399" : "2px solid transparent" }}>{label}</button>
         ))}
       </div>
+
+      {/* LOG REMINDER BANNER */}
+      {showLogReminder && (
+        <div className="log-reminder-pulse" onClick={() => { setView("today"); setSelectedDate(today); }} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 12, padding: "10px 16px", margin: "8px 16px 0", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+          <div style={{ width: 10, height: 10, borderRadius: 99, background: "#ef4444", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#fca5a5" }}>Don't forget to log today!</div>
+            <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>{(() => { const todayData = data?.days?.[today] || {}; const missing = []; if ((todayData.foods || []).length === 0) missing.push("food"); if (!todayData.steps) missing.push("steps"); if (!todayData.water) missing.push("water"); if (todayData.weight == null) missing.push("weight"); return `Missing: ${missing.join(", ")}`; })()}</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "16px 16px 40px" }}>
         {/* ===== TODAY ===== */}
         {view === "today" && <>
           <DayNav />
           <WeekDots />
+          {/* FOOD LOGGER */}
+          <div style={st.card}>
+            <div style={st.label}>🍽 Log Food</div>
+            <textarea placeholder={"e.g. 2 cups rice, chicken adobo (2 thighs),\n1 fried egg, glass of Coke"} value={foodInput} onChange={e => setFoodInput(e.target.value)} rows={3} style={{ ...inp, width: "100%", resize: "vertical" }} />
+            <button onClick={analyzeFood} disabled={foodLoading || !foodInput.trim()} style={{ width: "100%", marginTop: 8, background: foodLoading ? "#374151" : "#059669", border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: foodLoading ? "wait" : "pointer", opacity: (!foodInput.trim() && !foodLoading) ? 0.5 : 1 }}>{foodLoading ? "Analyzing..." : "Analyze Food"}</button>
+            {foodError && <p style={{ fontSize: 12, color: "#ef4444", margin: "8px 0 0" }}>{foodError}</p>}
+          </div>
+          {(td.foods || []).length > 0 && <>
+            <div style={st.label}>{isToday ? "Today's" : formatDateLabel(activeDate, today) + "'s"} Food Log</div>
+            {(td.foods || []).map((food, idx) => (
+              <div key={food.id || idx} style={st.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}><div><p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>{food.input}</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>{food.time}</p></div><button onClick={() => removeFood(food.id)} style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button></div>
+                {(food.items || []).map((item, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderTop: i === 0 ? "1px solid rgba(55,65,81,0.3)" : "none", fontSize: 12 }}><span style={{ color: "#d1d5db" }}>{item.name} {item.qty ? `(${item.qty})` : ""}</span><span style={{ color: "#9ca3af", whiteSpace: "nowrap" }}>{item.cal} cal</span></div>))}
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(55,65,81,0.3)", paddingTop: 8, marginTop: 4 }}><span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{food.total.cal} cal</span><div style={{ display: "flex", gap: 12, fontSize: 11, color: "#6b7280" }}><span>P:{food.total.protein}g</span><span>C:{food.total.carbs}g</span><span>F:{food.total.fat}g</span></div></div>
+              </div>
+            ))}
+          </>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div style={{ background: "rgba(251,191,36,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(251,191,36,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>⭐ {todayPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>Today</div></div>
             <div style={{ background: "rgba(139,92,246,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(139,92,246,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#a78bfa" }}>🏅 {weekPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>This Week</div></div>
@@ -632,9 +737,11 @@ function KenshoTracker() {
         </>}
 
         {/* ===== FOOD ===== */}
+        {/* ===== INSIGHTS ===== */}
         {view === "food" && <>
           <DayNav />
           <WeekDots />
+          {/* Macro Summary */}
           <div style={{ ...st.card, border: `1px solid ${calOver ? "rgba(239,68,68,0.4)" : "rgba(55,65,81,0.5)"}` }}>
             <div style={{ textAlign: "center", marginBottom: 8 }}><div style={{ fontSize: 32, fontWeight: 800, color: calOver ? "#ef4444" : dayTotals.cal > 0 ? "#fff" : "#6b7280" }}>{dayTotals.cal}</div><div style={{ fontSize: 12, color: "#6b7280" }}>of {CAL_TARGET} cal target</div></div>
             <div style={{ width: "100%", height: 10, background: "#1f2937", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", background: calOver ? "#ef4444" : calPct > 80 ? "#f59e0b" : "#10b981", borderRadius: 99, width: `${calPct}%` }} /></div>
@@ -643,23 +750,24 @@ function KenshoTracker() {
               <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>{dayTotals.carbs}g</div><div style={{ fontSize: 10, color: "#6b7280" }}>Carbs</div></div>
               <div style={{ textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#f472b6" }}>{dayTotals.fat}g</div><div style={{ fontSize: 10, color: "#6b7280" }}>Fat</div></div>
             </div>
-            {dayTotals.cal > 0 && <div style={{ textAlign: "center", marginTop: 8 }}><span style={{ fontSize: 12, color: calOver ? "#ef4444" : "#34d399", fontWeight: 600 }}>{calOver ? `${dayTotals.cal - CAL_TARGET} cal over ⚠️` : `${CAL_TARGET - dayTotals.cal} cal remaining ✓`}</span></div>}
+            {dayTotals.cal > 0 && <div style={{ textAlign: "center", marginTop: 8 }}><span style={{ fontSize: 12, color: calOver ? "#ef4444" : "#34d399", fontWeight: 600 }}>{calOver ? `${dayTotals.cal - CAL_TARGET} cal over` : `${CAL_TARGET - dayTotals.cal} cal remaining`}</span></div>}
           </div>
+          {/* AI Food Insight */}
           <div style={st.card}>
-            <div style={st.label}>🤖 AI Food Analysis</div>
-            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 10px" }}>Describe what you ate. Filipino food, fast food, anything.</p>
-            <textarea placeholder={"e.g. 2 cups rice, chicken adobo (2 thighs),\n1 fried egg, glass of Coke"} value={foodInput} onChange={e => setFoodInput(e.target.value)} rows={3} style={{ ...inp, width: "100%", resize: "vertical" }} />
-            <button onClick={analyzeFood} disabled={foodLoading || !foodInput.trim()} style={{ width: "100%", marginTop: 8, background: foodLoading ? "#374151" : "#059669", border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: foodLoading ? "wait" : "pointer", opacity: (!foodInput.trim() && !foodLoading) ? 0.5 : 1 }}>{foodLoading ? "🔄 Analyzing..." : "Analyze Food"}</button>
-            {foodError && <p style={{ fontSize: 12, color: "#ef4444", margin: "8px 0 0" }}>{foodError}</p>}
+            <div style={st.label}>Daily Food Insight</div>
+            <button onClick={generateFoodInsight} disabled={insightLoading} style={{ width: "100%", background: insightLoading ? "#374151" : "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: insightLoading ? "wait" : "pointer" }}>{insightLoading ? "Generating..." : "Get AI Insight"}</button>
+            {insightText && <div style={{ marginTop: 10, background: "rgba(99,102,241,0.1)", borderRadius: 12, padding: 14, border: "1px solid rgba(99,102,241,0.3)" }}><p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.6, margin: 0 }}>{insightText}</p></div>}
           </div>
-          <div style={st.label}>{isToday ? "Today's" : formatDateLabel(activeDate, today) + "'s"} Log</div>
-          {(td.foods || []).length === 0 ? (<div style={{ textAlign: "center", padding: "32px 0" }}><div style={{ fontSize: 32, marginBottom: 8 }}>🍽</div><p style={{ fontSize: 13, color: "#6b7280" }}>No food logged{isToday ? " yet" : ""}</p></div>) : (td.foods || []).map((food, idx) => (
-            <div key={food.id || idx} style={st.card}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}><div><p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>{food.input}</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>{food.time}</p></div><button onClick={() => removeFood(food.id)} style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button></div>
-              {(food.items || []).map((item, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderTop: i === 0 ? "1px solid rgba(55,65,81,0.3)" : "none", fontSize: 12 }}><span style={{ color: "#d1d5db" }}>{item.name} {item.qty ? `(${item.qty})` : ""}</span><span style={{ color: "#9ca3af", whiteSpace: "nowrap" }}>{item.cal} cal</span></div>))}
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(55,65,81,0.3)", paddingTop: 8, marginTop: 4 }}><span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{food.total.cal} cal</span><div style={{ display: "flex", gap: 12, fontSize: 11, color: "#6b7280" }}><span>P:{food.total.protein}g</span><span>C:{food.total.carbs}g</span><span>F:{food.total.fat}g</span></div></div>
-            </div>
-          ))}
+          {/* Help Me Choose */}
+          <div style={st.card}>
+            <div style={st.label}>Help Me Choose What to Eat</div>
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 10px" }}>Enter up to 3 meal options and let AI recommend the best one for your goals.</p>
+            <input type="text" placeholder="Option 1: e.g. Chicken inasal with rice" value={mealOption1} onChange={e => setMealOption1(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 6 }} />
+            <input type="text" placeholder="Option 2: e.g. Jollibee Chickenjoy" value={mealOption2} onChange={e => setMealOption2(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 6 }} />
+            <input type="text" placeholder="Option 3: e.g. Sinigang na baboy" value={mealOption3} onChange={e => setMealOption3(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} />
+            <button onClick={getMealAdvice} disabled={mealAdviceLoading || (!mealOption1.trim() && !mealOption2.trim() && !mealOption3.trim())} style={{ width: "100%", background: mealAdviceLoading ? "#374151" : "#059669", border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: mealAdviceLoading ? "wait" : "pointer", opacity: (!mealOption1.trim() && !mealOption2.trim() && !mealOption3.trim()) ? 0.5 : 1 }}>{mealAdviceLoading ? "Thinking..." : "Which should I eat?"}</button>
+            {mealAdvice && <div style={{ marginTop: 10, background: "rgba(16,185,129,0.1)", borderRadius: 12, padding: 14, border: "1px solid rgba(16,185,129,0.3)" }}><p style={{ fontSize: 13, color: "#a7f3d0", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{mealAdvice}</p></div>}
+          </div>
         </>}
 
         {/* ===== CALENDAR ===== */}
