@@ -332,6 +332,26 @@ function KenshoTracker() {
     setMealAdviceLoading(false);
   };
 
+  const [copyStatus, setCopyStatus] = useState("");
+  const copyWeekMacros = () => {
+    const ws = getWeekStart(activeDate);
+    const days = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(ws + "T00:00:00"); d.setDate(d.getDate() + i); days.push(d.toISOString().split("T")[0]); }
+    const header = "Date\tDay\tCalories\tProtein (g)\tCarbs (g)\tFat (g)\tWeight (kg)";
+    const rows = days.map(ds => {
+      const dd = data?.days?.[ds] || {};
+      const t = getDayTotals(dd);
+      const dayName = new Date(ds + "T00:00:00").toLocaleDateString("en-US", { weekday: "short" });
+      return `${ds}\t${dayName}\t${t.cal}\t${t.protein}\t${t.carbs}\t${t.fat}\t${dd.weight || ""}`;
+    });
+    const totals = days.reduce((acc, ds) => { const t = getDayTotals(data?.days?.[ds] || {}); return { cal: acc.cal + t.cal, protein: acc.protein + t.protein, carbs: acc.carbs + t.carbs, fat: acc.fat + t.fat }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+    const avgRow = `\tAvg/day\t${Math.round(totals.cal / 7)}\t${Math.round(totals.protein / 7)}\t${Math.round(totals.carbs / 7)}\t${Math.round(totals.fat / 7)}\t`;
+    const totalRow = `\tTotal\t${totals.cal}\t${totals.protein}\t${totals.carbs}\t${totals.fat}\t`;
+    navigator.clipboard.writeText([header, ...rows, totalRow, avgRow].join("\n"));
+    setCopyStatus("Copied!");
+    setTimeout(() => setCopyStatus(""), 2000);
+  };
+
   const getDateRange = (start, end) => {
     const dates = [];
     let d = new Date(start + "T00:00:00");
@@ -752,6 +772,8 @@ function KenshoTracker() {
             </div>
             {dayTotals.cal > 0 && <div style={{ textAlign: "center", marginTop: 8 }}><span style={{ fontSize: 12, color: calOver ? "#ef4444" : "#34d399", fontWeight: 600 }}>{calOver ? `${dayTotals.cal - CAL_TARGET} cal over` : `${CAL_TARGET - dayTotals.cal} cal remaining`}</span></div>}
           </div>
+          {/* Copy Week Macros */}
+          <button onClick={copyWeekMacros} style={{ width: "100%", background: copyStatus ? "rgba(16,185,129,0.15)" : "rgba(17,24,39,0.5)", border: copyStatus ? "1px solid rgba(16,185,129,0.4)" : "1px solid rgba(55,65,81,0.5)", borderRadius: 12, padding: "10px 16px", color: copyStatus ? "#34d399" : "#9ca3af", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>{copyStatus ? "✓ Copied!" : "📋 Copy This Week's Macros for Google Sheets"}</button>
           {/* AI Food Insight */}
           <div style={st.card}>
             <div style={st.label}>Daily Food Insight</div>
