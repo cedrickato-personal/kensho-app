@@ -493,8 +493,12 @@ function KenshoTracker() {
   const WeekDots = () => {
     const weekDates = getWeekDates(activeDate);
     const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+    const wwTarget = profile?.workoutsPerWeek || maxDay;
     return (
-      <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 4, marginBottom: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: ww >= wwTarget ? "#34d399" : "#4b5563", display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2, minWidth: 24 }}>
+          <span style={{ fontSize: 13 }}>💪</span><span>{ww}/{wwTarget}</span>
+        </div>
         {weekDates.map((d, i) => {
           const score = getDayScore(d);
           const isActive = d === activeDate;
@@ -530,12 +534,13 @@ function KenshoTracker() {
             <KenshoLogo />
             <div><h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: 2 }}>KENSHO</h1><p style={{ fontSize: 9, color: "#6b7280", margin: "1px 0 0", letterSpacing: 1 }}>REVEAL YOUR TRUE NATURE</p></div>
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: streak > 0 ? "#fb923c" : "#374151" }}>🔥 {streak}</div>
             <button onClick={() => setShowTzPicker(!showTzPicker)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, textAlign: "right" }}>
               <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>{currentTime}{showLogReminder && <div className="log-reminder-pulse" style={{ width: 8, height: 8, borderRadius: 99, background: "#ef4444", flexShrink: 0 }} />}</div>
               <div style={{ fontSize: 9, color: "#4b5563", marginTop: 1 }}>{tzLabel.split(") ")[0]})</div>
             </button>
-            {isToday && fastingNow && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>⏱ {fastingNow} fasted</div>}
+            {isToday && fastingNow && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 1 }}>⏱ {fastingNow} fasted</div>}
           </div>
         </div>
         {showTzPicker && (
@@ -572,10 +577,13 @@ function KenshoTracker() {
           <div style={{ width: "100%", height: 12, background: "#1f2937", borderRadius: 99, overflow: "hidden", marginTop: 4 }}><div style={{ height: "100%", background: "linear-gradient(to right,#059669,#34d399)", borderRadius: 99, width: `${pct}%`, transition: "width 0.5s" }} /></div>
           <p style={{ textAlign: "center", fontSize: 11, color: "#6b7280", marginTop: 4 }}>{lost > 0 ? `${lost.toFixed(1)}kg lost` : "Log weight to start"} · {remain.toFixed(1)}kg to go</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10 }}>
-          <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#fb923c" }}>🔥 {streak}</div><div style={{ fontSize: 10, color: "#6b7280" }}>Streak</div></div>
-          <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: ww >= (profile?.workoutsPerWeek || maxDay) ? "#34d399" : "#6b7280" }}>💪 {ww}/{profile?.workoutsPerWeek || maxDay}</div><div style={{ fontSize: 10, color: "#6b7280" }}>This Week</div></div>
-          <div style={{ background: "rgba(17,24,39,0.7)", borderRadius: 16, padding: "10px 8px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#60a5fa" }}>📊 {completionRate()}%</div><div style={{ fontSize: 10, color: "#6b7280" }}>All-Time</div></div>
+        <div style={{ marginTop: 10, background: "rgba(17,24,39,0.5)", borderRadius: 12, padding: "8px 12px", border: `1px solid ${calOver ? "rgba(239,68,68,0.3)" : "rgba(55,65,81,0.4)"}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af" }}>🍽 CALORIES</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: calOver ? "#ef4444" : dayTotals.cal > 0 ? "#fbbf24" : "#4b5563" }}>{dayTotals.cal} / {CAL_TARGET}</span>
+          </div>
+          <div style={{ width: "100%", height: 6, background: "#1f2937", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", background: calOver ? "#ef4444" : calPct > 80 ? "#f59e0b" : "#10b981", borderRadius: 99, width: `${calPct}%`, transition: "width 0.3s" }} /></div>
+          {dayTotals.cal > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7280" }}><span>P: {dayTotals.protein}g</span><span>C: {dayTotals.carbs}g</span><span>F: {dayTotals.fat}g</span><span style={{ color: calOver ? "#ef4444" : "#6b7280" }}>{CAL_TARGET - dayTotals.cal > 0 ? `${CAL_TARGET - dayTotals.cal} left` : `${dayTotals.cal - CAL_TARGET} over`}</span></div>}
         </div>
       </div>
 
@@ -602,10 +610,9 @@ function KenshoTracker() {
         {view === "today" && <>
           <DayNav />
           <WeekDots />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
-            <div style={{ background: "rgba(251,191,36,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(251,191,36,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>⭐ {todayPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>Today</div></div>
-            <div style={{ background: "rgba(139,92,246,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(139,92,246,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#a78bfa" }}>🏅 {weekPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>This Week</div></div>
-            <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(59,130,246,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#60a5fa" }}>🏆 {allTimePoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>All-Time</div></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+            <div style={{ background: "rgba(251,191,36,0.1)", borderRadius: 12, padding: "6px", textAlign: "center", border: "1px solid rgba(251,191,36,0.2)" }}><div style={{ fontSize: 14, fontWeight: 700, color: "#fbbf24" }}>⭐ {todayPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>Today's Points</div></div>
+            <div style={{ background: "rgba(139,92,246,0.1)", borderRadius: 12, padding: "6px", textAlign: "center", border: "1px solid rgba(139,92,246,0.2)" }}><div style={{ fontSize: 14, fontWeight: 700, color: "#a78bfa" }}>🏅 {weekPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>This Week</div></div>
           </div>
           {!isToday && <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "10px 14px", border: "1px solid rgba(59,130,246,0.3)", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 12, color: "#93c5fd" }}>📅 Viewing {formatDateLabel(activeDate, today)}</span><button onClick={goToday} style={{ background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", borderRadius: 8, padding: "4px 10px", color: "#34d399", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Back to Today</button></div>}
           <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 14, padding: 12, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 8 }}>
@@ -613,11 +620,6 @@ function KenshoTracker() {
             <p style={{ fontSize: 12, color: "#c4b5fd", lineHeight: 1.4, margin: 0 }}>{dailyReminder}</p>
           </div>
           {isToday && fastingNow && (profile?.enableFasting || profile?.enableOmad) && <div style={{ ...st.card, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(120,53,15,0.15)" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 10, color: "#d97706", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Fasting Timer</div><div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 4 }}>⏱ {fastingNow}</div></div><div style={{ fontSize: 11, color: "#6b7280" }}>since last meal</div></div></div>}
-          <div style={{ ...st.card, border: `1px solid ${calOver ? "rgba(239,68,68,0.4)" : "rgba(55,65,81,0.5)"}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontSize: 12, fontWeight: 700, color: "#9ca3af" }}>🍽 CALORIES</span><span style={{ fontSize: 14, fontWeight: 700, color: calOver ? "#ef4444" : dayTotals.cal > 0 ? "#fbbf24" : "#6b7280" }}>{dayTotals.cal} / {CAL_TARGET}</span></div>
-            <div style={{ width: "100%", height: 8, background: "#1f2937", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", background: calOver ? "#ef4444" : calPct > 80 ? "#f59e0b" : "#10b981", borderRadius: 99, width: `${calPct}%`, transition: "width 0.3s" }} /></div>
-            {dayTotals.cal > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "#6b7280" }}><span>P: {dayTotals.protein}g</span><span>C: {dayTotals.carbs}g</span><span>F: {dayTotals.fat}g</span><span style={{ color: calOver ? "#ef4444" : "#6b7280" }}>{CAL_TARGET - dayTotals.cal > 0 ? `${CAL_TARGET - dayTotals.cal} left` : `${dayTotals.cal - CAL_TARGET} over`}</span></div>}
-          </div>
           <div style={st.label}>Daily Habits</div>
           <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, border: `2px solid ${td.steps >= STEP_GOAL ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.steps >= STEP_GOAL ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.steps >= STEP_GOAL ? "#10b981" : "#4b5563"}`, background: td.steps >= STEP_GOAL ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.steps >= STEP_GOAL ? "✓" : ""}</div>
@@ -829,6 +831,10 @@ function KenshoTracker() {
 
         {/* ===== STATS ===== */}
         {view === "stats" && <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "10px 8px", textAlign: "center", border: "1px solid rgba(59,130,246,0.2)" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#60a5fa" }}>📊 {completionRate()}%</div><div style={{ fontSize: 10, color: "#6b7280" }}>All-Time Completion</div></div>
+            <div style={{ background: "rgba(251,191,36,0.1)", borderRadius: 12, padding: "10px 8px", textAlign: "center", border: "1px solid rgba(251,191,36,0.2)" }}><div style={{ fontSize: 18, fontWeight: 700, color: "#fbbf24" }}>🏆 {allTimePoints}</div><div style={{ fontSize: 10, color: "#6b7280" }}>All-Time Points</div></div>
+          </div>
           <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 16, padding: 16, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 16 }}><div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Core Principle</div><p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.5, margin: 0 }}>{profile?.constantQuote || "The minimum effective dose: show up, track everything, trust the process."}</p></div>
           <div style={{ ...st.card, border: isSunday && !currentReview ? "1px solid rgba(251,191,36,0.5)" : "1px solid rgba(55,65,81,0.5)", background: isSunday && !currentReview ? "rgba(120,53,15,0.1)" : "rgba(17,24,39,0.5)" }}>
             <div style={st.label}>{isSunday ? "📝 Weekly Review — It's Sunday!" : "📝 Weekly Review"}</div>
