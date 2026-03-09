@@ -418,13 +418,13 @@ function KenshoTracker() {
   const calPct = Math.min(100, Math.round((dayTotals.cal / CAL_TARGET) * 100));
   const calOver = dayTotals.cal > CAL_TARGET;
 
-  const getStreak = () => { let s = 0, d = new Date(today + "T00:00:00"); while (true) { const k = d.toISOString().split("T")[0]; const dd = data?.days?.[k]; const stepsOk = dd && ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true); const skincareOk = profile?.enableSkincare === false || dd?.skincare; const omadOk = !profile?.enableOmad || dd?.omad; if (dd && stepsOk && skincareOk && omadOk) { s++; d.setDate(d.getDate() - 1); } else break; } return s; };
+  const getStreak = () => { let s = 0, d = new Date(today + "T00:00:00"); while (true) { const k = d.toISOString().split("T")[0]; const dd = data?.days?.[k]; const stepsOk = dd && ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true); const skincareOk = profile?.enableSkincare === false || dd?.skincare || (dd?.skincareAM && dd?.skincarePM); const omadOk = !profile?.enableOmad || dd?.omad; if (dd && stepsOk && skincareOk && omadOk) { s++; d.setDate(d.getDate() - 1); } else break; } return s; };
   const weekWorkouts = () => { const ws = getWeekStart(activeDate); return Object.entries(data?.days || {}).filter(([date, d]) => getWeekStart(date) === ws && d.workout).length; };
   const latestWeight = () => { const e = Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => b[0].localeCompare(a[0])); return e.length > 0 ? e[0][1].weight : START_WEIGHT; };
   const weightHistory = () => Object.entries(data?.days || {}).filter(([_, d]) => d.weight).sort((a, b) => a[0].localeCompare(b[0])).slice(-20).map(([date, d]) => ({ date, weight: d.weight }));
   const completionRate = () => { const entries = Object.entries(data?.days || {}); if (!entries.length) return 0; let total = 0, done = 0; entries.forEach(([_, d]) => { total += 3; if ((typeof d.steps === 'number' && d.steps >= STEP_GOAL) || d.steps === true) done++; if (d.skincare) done++; if (d.omad) done++; }); return Math.round((done / total) * 100); };
   const nextMilestone = () => { if (!MILESTONES.length) return { kg: GOAL_WEIGHT, label: "Goal weight", emoji: "🎯", face: "" }; const cw = latestWeight(); for (const m of MILESTONES) { if (cw > m.kg) return m; } return MILESTONES[MILESTONES.length - 1]; };
-  const getDayScore = (dateStr) => { const dd = data?.days?.[dateStr]; if (!dd) return 0; let s = 0; if ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true) s++; if (dd.skincare) s++; if (dd.omad) s++; if (dd.workout) s++; return s; };
+  const getDayScore = (dateStr) => { const dd = data?.days?.[dateStr]; if (!dd) return 0; let s = 0; if ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true) s++; if (dd.skincare || (dd.skincareAM && dd.skincarePM)) s++; if (dd.omad) s++; if (dd.workout) s++; return s; };
 
   const getDayPoints = (dd) => {
     if (!dd) return 0;
@@ -432,7 +432,7 @@ function KenshoTracker() {
     if (dd.brushAM) pts += 5;
     if (dd.brushPM) pts += 5;
     if (dd.bathing) pts += 10;
-    if (dd.skincare) pts += 10;
+    if (dd.skincare) pts += 10; else { if (dd.skincareAM) pts += 5; if (dd.skincarePM) pts += 5; }
     if (dd.workout) pts += 25;
     if (dd.water >= WATER_GOAL) pts += 10;
     if ((typeof dd.steps === 'number' && dd.steps >= STEP_GOAL) || dd.steps === true) pts += 15;
@@ -474,7 +474,7 @@ function KenshoTracker() {
   const calFirstDay = getFirstDayOfMonth(calMonth.year, calMonth.month);
   const calendarCells = []; for (let i = 0; i < calFirstDay; i++) calendarCells.push(null); for (let d = 1; d <= calDays; d++) calendarCells.push(d);
   const currentReview = data.weeklyReviews?.[weekId];
-  const st = { card: { background: "rgba(17,24,39,0.5)", borderRadius: 16, padding: 16, border: "1px solid rgba(55,65,81,0.5)", marginBottom: 12 }, label: { fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 } };
+  const st = { card: { background: "rgba(17,24,39,0.5)", borderRadius: 14, padding: 12, border: "1px solid rgba(55,65,81,0.5)", marginBottom: 8 }, label: { fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 } };
   const inp = { background: "#1f2937", border: "1px solid #374151", borderRadius: 12, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
   const tzLabel = TIMEZONES.find(t => t.value === timezone)?.label || timezone;
 
@@ -581,7 +581,7 @@ function KenshoTracker() {
 
       {/* NAV */}
       <div style={{ display: "flex", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, zIndex: 10, background: "rgba(3,7,18,0.97)" }}>
-        {[["today", "Today"], ["food", "Insights"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"], ["settings", "⚙️"]].map(([k, label]) => (
+        {[["today", "Today"], ["food", "Food"], ["calendar", "Cal"], ["stats", "Stats"], ["plan", "Plan"], ["settings", "⚙️"]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)} style={{ flex: 1, padding: "12px 0", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer", background: "transparent", color: view === k ? "#34d399" : "#6b7280", borderBottom: view === k ? "2px solid #34d399" : "2px solid transparent" }}>{label}</button>
         ))}
       </div>
@@ -602,32 +602,15 @@ function KenshoTracker() {
         {view === "today" && <>
           <DayNav />
           <WeekDots />
-          {/* FOOD LOGGER */}
-          <div style={st.card}>
-            <div style={st.label}>🍽 Log Food</div>
-            <textarea placeholder={"e.g. 2 cups rice, chicken adobo (2 thighs),\n1 fried egg, glass of Coke"} value={foodInput} onChange={e => setFoodInput(e.target.value)} rows={3} style={{ ...inp, width: "100%", resize: "vertical" }} />
-            <button onClick={analyzeFood} disabled={foodLoading || !foodInput.trim()} style={{ width: "100%", marginTop: 8, background: foodLoading ? "#374151" : "#059669", border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: foodLoading ? "wait" : "pointer", opacity: (!foodInput.trim() && !foodLoading) ? 0.5 : 1 }}>{foodLoading ? "Analyzing..." : "Analyze Food"}</button>
-            {foodError && <p style={{ fontSize: 12, color: "#ef4444", margin: "8px 0 0" }}>{foodError}</p>}
-          </div>
-          {(td.foods || []).length > 0 && <>
-            <div style={st.label}>{isToday ? "Today's" : formatDateLabel(activeDate, today) + "'s"} Food Log</div>
-            {(td.foods || []).map((food, idx) => (
-              <div key={food.id || idx} style={st.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}><div><p style={{ fontSize: 13, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>{food.input}</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>{food.time}</p></div><button onClick={() => removeFood(food.id)} style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button></div>
-                {(food.items || []).map((item, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderTop: i === 0 ? "1px solid rgba(55,65,81,0.3)" : "none", fontSize: 12 }}><span style={{ color: "#d1d5db" }}>{item.name} {item.qty ? `(${item.qty})` : ""}</span><span style={{ color: "#9ca3af", whiteSpace: "nowrap" }}>{item.cal} cal</span></div>))}
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(55,65,81,0.3)", paddingTop: 8, marginTop: 4 }}><span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{food.total.cal} cal</span><div style={{ display: "flex", gap: 12, fontSize: 11, color: "#6b7280" }}><span>P:{food.total.protein}g</span><span>C:{food.total.carbs}g</span><span>F:{food.total.fat}g</span></div></div>
-              </div>
-            ))}
-          </>}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
             <div style={{ background: "rgba(251,191,36,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(251,191,36,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#fbbf24" }}>⭐ {todayPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>Today</div></div>
             <div style={{ background: "rgba(139,92,246,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(139,92,246,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#a78bfa" }}>🏅 {weekPoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>This Week</div></div>
             <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "8px 6px", textAlign: "center", border: "1px solid rgba(59,130,246,0.2)" }}><div style={{ fontSize: 16, fontWeight: 700, color: "#60a5fa" }}>🏆 {allTimePoints}</div><div style={{ fontSize: 9, color: "#6b7280" }}>All-Time</div></div>
           </div>
           {!isToday && <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: 12, padding: "10px 14px", border: "1px solid rgba(59,130,246,0.3)", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 12, color: "#93c5fd" }}>📅 Viewing {formatDateLabel(activeDate, today)}</span><button onClick={goToday} style={{ background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", borderRadius: 8, padding: "4px 10px", color: "#34d399", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Back to Today</button></div>}
-          <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 16, padding: 16, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{isToday ? "Today's Reminder" : formatDateLabel(activeDate, today)}</div>
-            <p style={{ fontSize: 13, color: "#c4b5fd", lineHeight: 1.5, margin: 0 }}>{dailyReminder}</p>
+          <div style={{ background: "linear-gradient(to right,rgba(49,46,129,0.3),rgba(88,28,135,0.3))", borderRadius: 14, padding: 12, border: "1px solid rgba(67,56,202,0.3)", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(167,139,250,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>{isToday ? "Today's Reminder" : formatDateLabel(activeDate, today)}</div>
+            <p style={{ fontSize: 12, color: "#c4b5fd", lineHeight: 1.4, margin: 0 }}>{dailyReminder}</p>
           </div>
           {isToday && fastingNow && (profile?.enableFasting || profile?.enableOmad) && <div style={{ ...st.card, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(120,53,15,0.15)" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 10, color: "#d97706", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Fasting Timer</div><div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 4 }}>⏱ {fastingNow}</div></div><div style={{ fontSize: 11, color: "#6b7280" }}>since last meal</div></div></div>}
           <div style={{ ...st.card, border: `1px solid ${calOver ? "rgba(239,68,68,0.4)" : "rgba(55,65,81,0.5)"}` }}>
@@ -636,7 +619,7 @@ function KenshoTracker() {
             {dayTotals.cal > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "#6b7280" }}><span>P: {dayTotals.protein}g</span><span>C: {dayTotals.carbs}g</span><span>F: {dayTotals.fat}g</span><span style={{ color: calOver ? "#ef4444" : "#6b7280" }}>{CAL_TARGET - dayTotals.cal > 0 ? `${CAL_TARGET - dayTotals.cal} left` : `${dayTotals.cal - CAL_TARGET} over`}</span></div>}
           </div>
           <div style={st.label}>Daily Habits</div>
-          <div style={{ width: "100%", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td.steps >= STEP_GOAL ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.steps >= STEP_GOAL ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, border: `2px solid ${td.steps >= STEP_GOAL ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.steps >= STEP_GOAL ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.steps >= STEP_GOAL ? "#10b981" : "#4b5563"}`, background: td.steps >= STEP_GOAL ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.steps >= STEP_GOAL ? "✓" : ""}</div>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>🚶 Steps</p>
@@ -655,19 +638,27 @@ function KenshoTracker() {
             </div>
           </div>
           {profile?.enableSkincare !== false && (
-            <button onClick={() => toggle("skincare")} style={{ width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td.skincare ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.skincare ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.skincare ? "#10b981" : "#4b5563"}`, background: td.skincare ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.skincare ? "✓" : ""}</div>
-              <div><p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>Skincare Routine</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>Cleanser → Moisturizer → Sunscreen (AM)</p></div>
-            </button>
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <button onClick={() => updateDay(day => { day.skincareAM = !day.skincareAM; })} style={{ flex: 1, textAlign: "left", padding: "10px 12px", borderRadius: 14, border: `2px solid ${td.skincareAM ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.skincareAM ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 20, height: 20, borderRadius: 99, border: `2px solid ${td.skincareAM ? "#10b981" : "#4b5563"}`, background: td.skincareAM ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, color: "#fff", fontWeight: 700 }}>{td.skincareAM ? "✓" : ""}</div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb" }}>🧴 Skincare</span>
+                <span style={{ fontSize: 10, color: "#6b7280", marginLeft: "auto" }}>AM</span>
+              </button>
+              <button onClick={() => updateDay(day => { day.skincarePM = !day.skincarePM; })} style={{ flex: 1, textAlign: "left", padding: "10px 12px", borderRadius: 14, border: `2px solid ${td.skincarePM ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.skincarePM ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 20, height: 20, borderRadius: 99, border: `2px solid ${td.skincarePM ? "#10b981" : "#4b5563"}`, background: td.skincarePM ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, color: "#fff", fontWeight: 700 }}>{td.skincarePM ? "✓" : ""}</div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e7eb" }}>🧴 Skincare</span>
+                <span style={{ fontSize: 10, color: "#6b7280", marginLeft: "auto" }}>PM</span>
+              </button>
+            </div>
           )}
           {profile?.enableOmad && (
-            <button onClick={() => toggle("omad")} style={{ width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 16, border: `2px solid ${td.omad ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.omad ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <button onClick={() => toggle("omad")} style={{ width: "100%", textAlign: "left", padding: "10px 14px", borderRadius: 14, border: `2px solid ${td.omad ? "rgba(16,185,129,0.5)" : "rgba(55,65,81,0.5)"}`, background: td.omad ? "rgba(6,78,59,0.3)" : "rgba(17,24,39,0.5)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${td.omad ? "#10b981" : "#4b5563"}`, background: td.omad ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, color: "#fff", fontWeight: 700 }}>{td.omad ? "✓" : ""}</div>
               <div><p style={{ fontSize: 14, fontWeight: 600, color: "#e5e7eb", margin: 0 }}>OMAD — {CAL_TARGET} cal</p><p style={{ fontSize: 11, color: "#6b7280", margin: "2px 0 0" }}>One meal, stay the course</p></div>
             </button>
           )}
           {profile?.enableHygiene !== false && <>
-          <div style={{ ...st.label, marginTop: 16 }}>🧼 Hygiene</div>
+          <div style={{ ...st.label, marginTop: 8 }}>🧼 Hygiene</div>
           <div style={st.card}>
             {(profile?.hygieneItems || [{ name: "Brush teeth", emoji: "🪥", twiceDaily: true }, { name: "Shower/bathe", emoji: "🚿", twiceDaily: false }, { name: "Laundry", emoji: "👕", twiceDaily: false }, { name: "Clean room", emoji: "🧹", twiceDaily: false }]).map((rawItem, idx) => {
               const item = typeof rawItem === "string" ? { name: rawItem, emoji: "✅", twiceDaily: false } : rawItem;
@@ -702,14 +693,14 @@ function KenshoTracker() {
             })}
           </div>
           </>}
-          <div style={{ ...st.label, marginTop: 16 }}>💧 Water ({td.water}/{WATER_GOAL} glasses)</div>
+          <div style={{ ...st.label, marginTop: 8 }}>💧 Water ({td.water}/{WATER_GOAL} glasses)</div>
           <div style={st.card}>
             <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
               {Array.from({ length: WATER_GOAL }, (_, i) => (<button key={i} onClick={() => setWater(td.water === i + 1 ? i : i + 1)} style={{ width: 38, height: 42, borderRadius: 10, border: "none", cursor: "pointer", background: i < td.water ? "rgba(59,130,246,0.3)" : "rgba(31,41,55,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, transition: "all 0.2s" }}>{i < td.water ? "💧" : "○"}</button>))}
             </div>
             {td.water >= WATER_GOAL && <p style={{ textAlign: "center", fontSize: 11, color: "#60a5fa", marginTop: 8, fontWeight: 600 }}>✓ Hydration complete!</p>}
           </div>
-          <div style={{ ...st.label, marginTop: 16 }}>Workout ({profile?.workoutsPerWeek || maxDay}x/week){WORKOUT_PROGRAM.block ? ` · ${WORKOUT_PROGRAM.block}` : ""}</div>
+          <div style={{ ...st.label, marginTop: 8 }}>Workout ({profile?.workoutsPerWeek || maxDay}x/week){WORKOUT_PROGRAM.block ? ` · ${WORKOUT_PROGRAM.block}` : ""}</div>
           {!td.workout ? (
             <div style={st.card}>
               <p style={{ fontSize: 13, color: "#9ca3af", margin: "0 0 8px" }}>Did you train{isToday ? " today" : ` on ${formatDateLabel(activeDate, today)}`}?</p>
@@ -745,10 +736,9 @@ function KenshoTracker() {
               </div>}
             </div>
           )}
-          <div style={{ ...st.label, marginTop: 16 }}>Weight Check-in</div>
-          <div style={st.card}><div style={st.label}>Weight Check-in</div>{td.weight && !editingWeight ? (<div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700 }}>{td.weight} kg</div><div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>Logged{isToday ? " today" : ` on ${activeDate}`}</div><div style={{ display: "flex", justifyContent: "center", gap: 8 }}><button onClick={() => { setWeightInput(String(td.weight)); setEditingWeight(true); }} style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, padding: "5px 12px", color: "#60a5fa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏️ Edit</button><button onClick={unlogWeight} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "5px 12px", color: "#f87171", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✕ Remove</button></div></div>) : (<div style={{ display: "flex", gap: 8 }}><input type="number" step="0.1" placeholder="e.g. 93.5" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ ...inp, flex: 1 }} /><button onClick={() => { logWeight(); setEditingWeight(false); }} style={{ background: "#059669", border: "none", borderRadius: 12, padding: "10px 16px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{editingWeight ? "Update" : "Log"}</button>{editingWeight && <button onClick={() => { setEditingWeight(false); setWeightInput(""); }} style={{ background: "#374151", border: "none", borderRadius: 12, padding: "10px 14px", color: "#9ca3af", fontSize: 13, cursor: "pointer" }}>Cancel</button>}</div>)}</div>
+          <div style={st.card}><div style={{ ...st.label, marginTop: 4 }}>Weight Check-in</div>{td.weight && !editingWeight ? (<div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700 }}>{td.weight} kg</div><div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>Logged{isToday ? " today" : ` on ${activeDate}`}</div><div style={{ display: "flex", justifyContent: "center", gap: 8 }}><button onClick={() => { setWeightInput(String(td.weight)); setEditingWeight(true); }} style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, padding: "5px 12px", color: "#60a5fa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏️ Edit</button><button onClick={unlogWeight} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "5px 12px", color: "#f87171", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✕ Remove</button></div></div>) : (<div style={{ display: "flex", gap: 8 }}><input type="number" step="0.1" placeholder="e.g. 93.5" value={weightInput} onChange={e => setWeightInput(e.target.value)} style={{ ...inp, flex: 1 }} /><button onClick={() => { logWeight(); setEditingWeight(false); }} style={{ background: "#059669", border: "none", borderRadius: 12, padding: "10px 16px", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{editingWeight ? "Update" : "Log"}</button>{editingWeight && <button onClick={() => { setEditingWeight(false); setWeightInput(""); }} style={{ background: "#374151", border: "none", borderRadius: 12, padding: "10px 14px", color: "#9ca3af", fontSize: 13, cursor: "pointer" }}>Cancel</button>}</div>)}</div>
           <div style={st.card}><p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 8px" }}>Quick note</p>{td.note && !editingNote ? (<div><p style={{ fontSize: 13, color: "#d1d5db", fontStyle: "italic", margin: "0 0 8px" }}>"{td.note}"</p><div style={{ display: "flex", gap: 8 }}><button onClick={() => { setNoteInput(td.note); setEditingNote(true); }} style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 8, padding: "5px 12px", color: "#60a5fa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏️ Edit</button><button onClick={unlogNote} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "5px 12px", color: "#f87171", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✕ Remove</button></div></div>) : (<div style={{ display: "flex", gap: 8 }}><input type="text" placeholder="How you feel, what you learned..." value={noteInput} onChange={e => setNoteInput(e.target.value)} style={{ ...inp, flex: 1 }} /><button onClick={() => { logNote(); setEditingNote(false); }} style={{ background: "#374151", border: "none", borderRadius: 12, padding: "10px 16px", color: "#fff", fontSize: 13, cursor: "pointer" }}>{editingNote ? "Update" : "Save"}</button>{editingNote && <button onClick={() => { setEditingNote(false); setNoteInput(""); }} style={{ background: "rgba(75,85,99,0.3)", border: "none", borderRadius: 12, padding: "10px 14px", color: "#9ca3af", fontSize: 13, cursor: "pointer" }}>Cancel</button>}</div>)}</div>
-          <div style={{ background: "linear-gradient(to right,rgba(120,53,15,0.2),rgba(154,52,18,0.2))", borderRadius: 16, padding: 16, border: "1px solid rgba(180,83,9,0.3)" }}>
+          <div style={{ background: "linear-gradient(to right,rgba(120,53,15,0.2),rgba(154,52,18,0.2))", borderRadius: 14, padding: 12, border: "1px solid rgba(180,83,9,0.3)", marginTop: 4 }}>
             <div style={{ fontSize: 10, color: "rgba(251,191,36,0.7)", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>Next Milestone</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#fcd34d", marginTop: 4 }}>{nm.emoji} {nm.label}</div>
             <div style={{ fontSize: 13, color: "rgba(252,211,77,0.6)", marginTop: 2 }}>{nm.face}</div>
@@ -757,10 +747,28 @@ function KenshoTracker() {
         </>}
 
         {/* ===== FOOD ===== */}
-        {/* ===== INSIGHTS ===== */}
         {view === "food" && <>
           <DayNav />
           <WeekDots />
+          {/* Food Logger */}
+          <div style={st.card}>
+            <div style={st.label}>🍽 Log Food</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <textarea placeholder="e.g. 2 cups rice, chicken adobo, 1 banana" value={foodInput} onChange={e => setFoodInput(e.target.value)} rows={2} style={{ ...inp, flex: 1, resize: "none", fontFamily: "inherit" }} />
+              <button onClick={analyzeFood} disabled={foodLoading || !foodInput.trim()} style={{ background: foodLoading ? "#374151" : "#059669", border: "none", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: foodLoading ? "wait" : "pointer", alignSelf: "flex-end", opacity: !foodInput.trim() ? 0.5 : 1 }}>{foodLoading ? "..." : "Analyze"}</button>
+            </div>
+            {foodError && <p style={{ fontSize: 11, color: "#ef4444", marginTop: 6 }}>{foodError}</p>}
+          </div>
+          {(td.foods || []).length > 0 && <>{(td.foods || []).map(food => (
+            <div key={food.id} style={{ ...st.card, padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: "#d1d5db", fontWeight: 600 }}>{food.input}</div><div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>{food.time}</div></div>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 14, fontWeight: 700, color: "#fbbf24" }}>{food.total?.cal} cal</div><div style={{ fontSize: 10, color: "#6b7280" }}>P:{food.total?.protein}g C:{food.total?.carbs}g F:{food.total?.fat}g</div></div>
+                <button onClick={() => removeFood(food.id)} style={{ background: "transparent", border: "none", color: "#4b5563", fontSize: 16, cursor: "pointer", marginLeft: 8, padding: "0 4px" }}>×</button>
+              </div>
+              {food.items?.length > 1 && <div style={{ marginTop: 6, borderTop: "1px solid rgba(55,65,81,0.3)", paddingTop: 6 }}>{food.items.map((item, i) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", padding: "1px 0" }}><span>{item.name} ({item.qty})</span><span>{item.cal} cal</span></div>))}</div>}
+            </div>
+          ))}</>}
           {/* Macro Summary */}
           <div style={{ ...st.card, border: `1px solid ${calOver ? "rgba(239,68,68,0.4)" : "rgba(55,65,81,0.5)"}` }}>
             <div style={{ textAlign: "center", marginBottom: 8 }}><div style={{ fontSize: 32, fontWeight: 800, color: calOver ? "#ef4444" : dayTotals.cal > 0 ? "#fff" : "#6b7280" }}>{dayTotals.cal}</div><div style={{ fontSize: 12, color: "#6b7280" }}>of {CAL_TARGET} cal target</div></div>
